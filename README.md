@@ -1,2 +1,2 @@
-# marefat-shimi
+# marefat-sch
 سامانه آزمون آنلاین دبیرستان معرفت
