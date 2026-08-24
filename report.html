@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>کارنامه دانش‌آموز | سامانه معرفت</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:1100px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.btn{padding:11px 15px;border:0;border-radius:9px;background:#3157d5;color:#fff;font-weight:700;text-decoration:none;display:inline-block}.btn.secondary{background:#667085}.muted{color:#667085}.err{color:#b42318}.ok{color:#176b3a}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.stat{background:#f8fafc;border-radius:12px;padding:14px}.stat b{display:block;font-size:22px;margin-top:5px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:12px;border-bottom:1px solid #eee;text-align:right;vertical-align:top}th{background:#f8fafc}.correct{background:#e8f7ee}.wrong{background:#fff0f0}.blank{background:#f8fafc}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}.badge.correct{color:#176b3a}.badge.wrong{color:#b42318}.badge.blank{color:#667085}.hidden{display:none}.empty{text-align:center;padding:35px}
+</style>
+</head>
+<body><main class="wrap">
+<div class="card"><div class="toolbar"><div style="flex:1"><h1 style="margin:0">کارنامه دانش‌آموز</h1><p id="userInfo" class="muted"></p></div><a class="btn secondary" href="results.html">بازگشت به نتایج</a><button id="logoutBtn" class="btn secondary">خروج</button></div></div>
+<div id="msg" class="card muted">در حال دریافت کارنامه...</div>
+<section id="report" class="hidden">
+<div class="card"><h2 id="examTitle"></h2><p id="studentInfo" class="muted"></p><div class="summary"><div class="stat">صحیح<b id="correct">0</b></div><div class="stat">غلط<b id="wrong">0</b></div><div class="stat">نزده<b id="blank">0</b></div><div class="stat">درصد<b id="percentage">0%</b></div><div class="stat">نمره<b id="score">0</b></div></div></div>
+<div class="card"><h2>جزئیات پاسخ‌ها</h2><div class="table-wrap"><table><thead><tr><th>سؤال</th><th>متن سؤال</th><th>پاسخ دانش‌آموز</th><th>پاسخ صحیح</th><th>وضعیت</th><th>نمره</th></tr></thead><tbody id="answerRows"></tbody></table></div></div>
+</section>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const $=id=>document.getElementById(id);
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function fmt(d){return d?new Date(d).toLocaleString('fa-IR'):'—'}
+function showError(e){$('msg').className='card err';$('msg').textContent='دریافت کارنامه انجام نشد: '+e.message}
+async function verifyAdmin(){const {data:userData}=await sb.auth.getUser();if(!userData.user)throw new Error('ابتدا وارد حساب مدیر شوید.');const {data:profile,error}=await sb.from('v5_profiles').select('full_name,role,is_active').eq('id',userData.user.id).maybeSingle();if(error)throw error;if(!profile||!profile.is_active||!['admin','deputy'].includes(profile.role))throw new Error('دسترسی مشاهده کارنامه برای این حساب مجاز نیست.');$('userInfo').textContent='کاربر: '+(profile.full_name||userData.user.email)+' | نقش: '+profile.role}
+async function loadReport(){
+ await verifyAdmin();
+ const attemptId=new URLSearchParams(location.search).get('attempt_id');if(!attemptId)throw new Error('شناسه کارنامه ارسال نشده است.');
+ const {data:attempt,error:ae}=await sb.from('v5_attempts').select('id,exam_id,student_id,status,correct_count,wrong_count,blank_count,total_score,percentage,started_at,submitted_at').eq('id',attemptId).maybeSingle();if(ae)throw ae;if(!attempt)throw new Error('کارنامه پیدا نشد.');if(attempt.status!=='submitted')throw new Error('فقط کارنامه آزمون‌های ثبت نهایی‌شده قابل مشاهده است.');
+ const [{data:exam,error:ee},{data:student,error:se},{data:eqs,error:eqe},{data:answers,error:sae}]=await Promise.all([
+  sb.from('v5_exams').select('id,exam_code,title').eq('id',attempt.exam_id).maybeSingle(),
+  sb.from('v5_students').select('id,student_code,full_name').eq('id',attempt.student_id).maybeSingle(),
+  sb.from('v5_exam_questions').select('id,question_id,question_order,score').eq('exam_id',attempt.exam_id).order('question_order'),
+  sb.from('v5_student_answers').select('id,exam_question_id,selected_option_id,answer_text,is_correct,score_awarded').eq('attempt_id',attempt.id)
+ ]);if(ee)throw ee;if(se)throw se;if(eqe)throw eqe;if(sae)throw sae;if(!exam||!student)throw new Error('اطلاعات آزمون یا دانش‌آموز پیدا نشد.');
+ const qids=(eqs||[]).map(x=>x.question_id);const {data:questions,error:qe}=await sb.from('v5_questions').select('id,question_text').in('id',qids);if(qe)throw qe;const qmap=new Map((questions||[]).map(q=>[q.id,q]));
+ const eqIds=(eqs||[]).map(x=>x.id);const {data:options,error:oe}=await sb.from('v5_question_options').select('id,question_id,option_key,option_text,is_correct,sort_order').in('question_id',qids).order('sort_order');if(oe)throw oe;const optionsByQ=new Map();for(const o of options||[]){if(!optionsByQ.has(o.question_id))optionsByQ.set(o.question_id,[]);optionsByQ.get(o.question_id).push(o)}
+ const amap=new Map((answers||[]).map(a=>[a.exam_question_id,a]));
+ $('examTitle').textContent=exam.title; $('studentInfo').textContent=student.full_name+' | کد دانش‌آموز: '+student.student_code+' | آزمون: '+exam.exam_code+' | شروع: '+fmt(attempt.started_at)+' | ثبت نهایی: '+fmt(attempt.submitted_at);
+ $('correct').textContent=attempt.correct_count||0;$('wrong').textContent=attempt.wrong_count||0;$('blank').textContent=attempt.blank_count||0;$('percentage').textContent=Number(attempt.percentage||0).toFixed(2)+'%';$('score').textContent=Number(attempt.total_score||0).toFixed(2);
+ $('answerRows').innerHTML=(eqs||[]).map(eq=>{const q=qmap.get(eq.question_id);const a=amap.get(eq.id);const opts=optionsByQ.get(eq.question_id)||[];const selected=a&&a.selected_option_id?opts.find(o=>o.id===a.selected_option_id):null;const correct=opts.find(o=>o.is_correct);let status='نزده',cls='blank';if(a){if(a.is_correct){status='صحیح';cls='correct'}else{status='غلط';cls='wrong'}}return '<tr class="'+cls+'"><td>'+eq.question_order+'</td><td>'+esc(q?.question_text||'—')+'</td><td>'+esc(selected?(selected.option_key+' — '+selected.option_text):(a?.answer_text||'—'))+'</td><td>'+esc(correct?(correct.option_key+' — '+correct.option_text):'—')+'</td><td><span class="badge '+cls+'">'+status+'</span></td><td>'+Number(a?.score_awarded||0).toFixed(2)+'</td></tr>'}).join('');
+ $('msg').classList.add('hidden');$('report').classList.remove('hidden');
+}
+$('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.href='results.html'};
+sb.auth.getSession().then(({data})=>{if(!data.session){showError(new Error('ابتدا وارد حساب مدیر شوید.'))}else{loadReport().catch(showError)}});
+</script></main></body></html>
