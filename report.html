@@ -21,7 +21,7 @@ const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function fmt(d){return d?new Date(d).toLocaleString('fa-IR'):'—'}
 function showError(e){$('msg').className='card err';$('msg').textContent='دریافت کارنامه انجام نشد: '+e.message}
-async function verifyAdmin(){const {data:userData}=await sb.auth.getUser();if(!userData.user)throw new Error('ابتدا وارد حساب مدیر شوید.');const {data:profile,error}=await sb.from('v5_profiles').select('full_name,role,is_active').eq('id',userData.user.id).maybeSingle();if(error)throw error;if(!profile||!profile.is_active||!['admin','deputy'].includes(profile.role))throw new Error('دسترسی مشاهده کارنامه برای این حساب مجاز نیست.');$('userInfo').textContent='کاربر: '+(profile.full_name||userData.user.email)+' | نقش: '+profile.role}
+async function verifyAdmin(){const {data:userData}=await sb.auth.getUser();if(!userData.user)throw new Error('ابتدا وارد حساب مدیر شوید.');const {data:profile,error}=await sb.from('v5_profiles').select('full_name,role,is_active').eq('id',userData.user.id).maybeSingle();if(error)throw error;if(!profile||!profile.is_active||!['admin','deputy','teacher'].includes(profile.role))throw new Error('دسترسی مشاهده کارنامه برای این حساب مجاز نیست.');$('userInfo').textContent='کاربر: '+(profile.full_name||userData.user.email)+' | نقش: '+profile.role}
 async function loadReport(){
  await verifyAdmin();
  const attemptId=new URLSearchParams(location.search).get('attempt_id');if(!attemptId)throw new Error('شناسه کارنامه ارسال نشده است.');
@@ -33,7 +33,7 @@ async function loadReport(){
   sb.from('v5_student_answers').select('id,exam_question_id,selected_option_id,answer_text,is_correct,score_awarded').eq('attempt_id',attempt.id)
  ]);if(ee)throw ee;if(se)throw se;if(eqe)throw eqe;if(sae)throw sae;if(!exam||!student)throw new Error('اطلاعات آزمون یا دانش‌آموز پیدا نشد.');
  const qids=(eqs||[]).map(x=>x.question_id);const {data:questions,error:qe}=await sb.from('v5_questions').select('id,question_text').in('id',qids);if(qe)throw qe;const qmap=new Map((questions||[]).map(q=>[q.id,q]));
- const eqIds=(eqs||[]).map(x=>x.id);const {data:options,error:oe}=await sb.from('v5_question_options').select('id,question_id,option_key,option_text,is_correct,sort_order').in('question_id',qids).order('sort_order');if(oe)throw oe;const optionsByQ=new Map();for(const o of options||[]){if(!optionsByQ.has(o.question_id))optionsByQ.set(o.question_id,[]);optionsByQ.get(o.question_id).push(o)}
+ const {data:options,error:oe}=await sb.from('v5_question_options').select('id,question_id,option_key,option_text,is_correct,sort_order').in('question_id',qids).order('sort_order');if(oe)throw oe;const optionsByQ=new Map();for(const o of options||[]){if(!optionsByQ.has(o.question_id))optionsByQ.set(o.question_id,[]);optionsByQ.get(o.question_id).push(o)}
  const amap=new Map((answers||[]).map(a=>[a.exam_question_id,a]));
  $('examTitle').textContent=exam.title; $('studentInfo').textContent=student.full_name+' | کد دانش‌آموز: '+student.student_code+' | آزمون: '+exam.exam_code+' | شروع: '+fmt(attempt.started_at)+' | ثبت نهایی: '+fmt(attempt.submitted_at);
  $('correct').textContent=attempt.correct_count||0;$('wrong').textContent=attempt.wrong_count||0;$('blank').textContent=attempt.blank_count||0;$('percentage').textContent=Number(attempt.percentage||0).toFixed(2)+'%';$('score').textContent=Number(attempt.total_score||0).toFixed(2);
