@@ -1,29 +1,66 @@
 # استقرار سامانه معرفت روی Cloudflare
 
-این مخزن برای استقرار آزمایشی روی Cloudflare Pages آماده شده است.
+## وضعیت فعلی
 
-## وضعیت
+نسخه اصلی سامانه روی Cloudflare Workers مستقر شده و به مخزن GitHub متصل است:
 
-- سایت فعلی Netlify دست‌نخورده می‌ماند.
-- شاخه production برابر `main` است.
-- پروژه یک سایت استاتیک HTML/JS است و build command لازم ندارد.
-- خروجی Pages ریشه مخزن (`.`) است.
-- دیتابیس همچنان Supabase است و در این انتقال جابه‌جا نمی‌شود.
-
-## راه‌اندازی Cloudflare Pages
-
-در Cloudflare Dashboard به **Workers & Pages** بروید و یک Pages project جدید بسازید و GitHub را متصل کنید. مخزن `mrazari1982-code/marefat-shimi` را انتخاب کنید.
-
-تنظیمات پیشنهادی:
-
+- Worker: `marefat-shimi`
+- Production URL: `https://marefat-shimi.m-r-azari-1982.workers.dev/`
+- GitHub repository: `mrazari1982-code/marefat-shimi`
 - Production branch: `main`
-- Build command: خالی
-- Build output directory: `.`
+- Database/Backend: Supabase
+- Frontend: HTML/CSS/JavaScript
 
-بعد از اولین deploy، Cloudflare یک آدرس `pages.dev` برای نسخه آزمایشی می‌دهد.
+> نکته: مستندات قدیمی این فایل به Cloudflare Pages اشاره می‌کردند. اکنون استقرار واقعی پروژه روی **Cloudflare Workers** انجام شده است؛ بنابراین تنظیمات فعلی Dashboard و Wrangler باید مبنای عملیات قرار گیرند.
 
-## نکته مهم
+## معماری انتشار
 
-تا زمانی که نسخه Cloudflare با ورود مدیر، ساخت آزمون، لینک آزمون، ورود دانش‌آموز، پاسخ‌دهی، ثبت نهایی، کارنامه و تحلیل آموزشی آزمایش نشده است، Netlify را حذف یا تغییر ندهید.
+```text
+GitHub (main)
+      |
+      v
+Cloudflare Workers
+      |
+      v
+marefat-shimi.m-r-azari-1982.workers.dev
+      |
+      v
+Supabase
+```
 
-این فایل صرفاً راهنمای استقرار است و هیچ رمز عبور، کلید خصوصی یا Secret در آن قرار نمی‌گیرد.
+## قواعد انتشار
+
+1. هر تغییر ابتدا در GitHub و در یک Commit مشخص ثبت شود.
+2. همان Commit باید مبنای Deployment باشد.
+3. قبل از حذف یا تغییر مسیر پشتیبان، مسیر کامل آزمون روی Production بررسی شود.
+4. Database همچنان روی Supabase باقی می‌ماند و با Deployment فرانت‌اند جابه‌جا نمی‌شود.
+5. هیچ Secret یا `service_role` key نباید در فایل‌های Frontend یا Repository قرار گیرد.
+
+## چک‌لیست Production
+
+- [ ] باز شدن URL اصلی Worker
+- [ ] بارگذاری صفحه ورود آزمون
+- [ ] اتصال Supabase
+- [ ] اعتبارسنجی لینک آزمون
+- [ ] ورود دانش‌آموز
+- [ ] شروع آزمون
+- [ ] دریافت سؤال‌ها بدون answer key
+- [ ] ذخیره پاسخ
+- [ ] بازیابی پاسخ‌ها
+- [ ] تایمر و پایان زمان
+- [ ] ثبت نهایی
+- [ ] کارنامه
+- [ ] ورود مدیر
+- [ ] بانک سؤال
+- [ ] ساخت و انتشار آزمون
+- [ ] ایجاد لینک
+- [ ] گزارش و تحلیل آموزشی
+- [ ] تست دسترسی‌های غیرمجاز
+
+## وضعیت Backup
+
+Netlify به‌عنوان مسیر پشتیبان/سابقه حذف یا تخریب نمی‌شود تا زمانی که تست کامل Production روی Cloudflare انجام نشده باشد.
+
+## محدودیت فعلی
+
+تست مرورگر تعاملی و مشاهده Console/Network در این محیط به Dashboard یا مرورگر کاربر وابسته است. در صورت مشاهده خطا در URL بالا، متن خطا یا تصویر صفحه برای بررسی دقیق لازم است.
