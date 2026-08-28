@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>آزمون | سامانه معرفت</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:900px;margin:auto;padding:16px}.card,.q{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.q{box-shadow:none;border:1px solid #e5e7eb}.opt{display:block;border:1px solid #ddd;border-radius:10px;padding:13px;margin:9px 0;cursor:pointer}.opt:has(input:checked){border-color:#3157d5}.btn{padding:12px 18px;border:0;border-radius:9px;background:#3157d5;color:#fff;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55}.err{color:#b42318}.ok{color:#176b3a}.muted{color:#667085}.timer{font-size:20px;font-weight:700}.sticky{position:sticky;bottom:8px;background:#fff;padding:10px;border-radius:12px}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section id="loading" class="card"><h1>آزمون</h1><p id="msg" class="muted">در حال آماده‌سازی آزمون...</p></section>
+<section id="exam" hidden><div class="card"><h1 id="title">آزمون</h1><p>دانش‌آموز: <b id="student"></b></p><p id="timer" class="timer"></p><p id="progress" class="muted"></p><p id="save" class="muted">پاسخ‌ها با انتخاب گزینه ذخیره می‌شوند.</p></div><div id="questions"></div><div class="sticky"><button id="submit" class="btn">ثبت نهایی آزمون</button></div></section>
+<section id="result" class="card" hidden><h2>وضعیت آزمون</h2><div id="resultText"></div></section>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const p=new URLSearchParams(location.search),token=p.get('token')||'',code=p.get('student_code')||'';
+let attempt=null,questions=[],timerId=null,submitting=false,expired=false;
+function setmsg(t,c='muted'){$('msg').className=c;$('msg').textContent=t}
+function groups(){const m=new Map();for(const x of questions){if(!m.has(x.id))m.set(x.id,{id:x.id,order:x.question_order,text:x.question_text,options:[]});m.get(x.id).options.push({id:x.option_id,key:x.option_key,text:x.option_text,sort:x.sort_order})}return [...m.values()].sort((a,b)=>a.order-b.order).map(q=>({...q,options:q.options.sort((a,b)=>a.sort-b.sort)}))}
+function progress(){const g=groups(),n=g.filter(q=>document.querySelector('input[name="q_'+q.id+'"]:checked')).length;$('progress').textContent=n+' از '+g.length+' پاسخ داده شده — '+(g.length-n)+' سؤال بدون پاسخ'}
+function lockExam(){expired=true;document.querySelectorAll('input[type=radio]').forEach(x=>x.disabled=true);$('submit').disabled=true}
+function showFinal(html){clearInterval(timerId);$('exam').hidden=true;$('loading').hidden=true;$('result').hidden=false;$('resultText').innerHTML=html}
+function render(saved){const g=groups();$('questions').innerHTML=g.map((q,i)=>'<section class="q"><p><b>'+(i+1)+') '+esc(q.text)+'</b></p>'+q.options.map(o=>'<label class="opt"><input type="radio" name="q_'+q.id+'" value="'+o.id+'" data-eq="'+q.id+'"> <b>'+esc(o.key)+'</b> '+esc(o.text)+'</label>').join('')+'</section>').join('');$('questions').addEventListener('change',e=>{if(e.target.matches('input[type=radio]'))saveAnswer(e.target)});for(const a of saved||[]){const el=document.querySelector('input[name="q_'+a.exam_question_id+'"][value="'+a.selected_option_id+'"]');if(el)el.checked=true}progress()}
+async function saveAnswer(el){if(submitting||expired)return;$('save').className='muted';$('save').textContent='در حال ذخیره پاسخ...';const r=await sb.rpc('v5_save_answer',{p_attempt_id:attempt.attempt_id,p_exam_question_id:Number(el.dataset.eq),p_selected_option_id:Number(el.value),p_student_code:code});if(r.error){$('save').className='err';$('save').textContent='ذخیره پاسخ انجام نشد: '+r.error.message;return}const x=Array.isArray(r.data)?r.data[0]:r.data;if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است و پاسخ جدیدی ثبت نشد.</span>');return}if(!x?.saved){$('save').className='err';$('save').textContent='پاسخ ذخیره نشد.';return}$('save').className='ok';$('save').textContent='پاسخ ذخیره شد.';progress()}
+function startTimer(st){const mins=Number(st.duration_minutes||0);if(!mins){$('timer').textContent='زمان آزمون: بدون محدودیت';return}const end=new Date(st.started_at).getTime()+mins*60000;const tick=()=>{const left=Math.max(0,Math.ceil((end-Date.now())/1000));$('timer').textContent='زمان باقی‌مانده: '+String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');if(left<=0){clearInterval(timerId);submitExam(true)}};tick();timerId=setInterval(tick,1000)}
+async function submitExam(force=false){if(!attempt||submitting||expired)return;if(!force&&!confirm('آیا از ثبت نهایی آزمون مطمئن هستید؟'))return;submitting=true;$('submit').disabled=true;$('save').className='muted';$('save').textContent='در حال ثبت نهایی...';const r=await sb.rpc('v5_submit_attempt',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(r.error){$('save').className='err';$('save').textContent='ثبت نهایی انجام نشد: '+r.error.message;submitting=false;$('submit').disabled=false;return}const x=Array.isArray(r.data)?r.data[0]:r.data;if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است. آزمون منقضی شد.</span>');return}if(x?.status!=='submitted'){showFinal('<span class="err">وضعیت آزمون: '+esc(x?.status||'نامشخص')+'</span>');return}if(x.show_result===false){showFinal('<span class="ok">آزمون با موفقیت ثبت شد.</span><br><span class="muted">نمایش کارنامه برای این آزمون غیرفعال است.</span>');return}showFinal('صحیح: <b>'+Number(x.correct_answers||0)+'</b> | غلط: <b>'+Number(x.wrong_answers||0)+'</b> | نزده: <b>'+Number(x.unanswered_questions||0)+'</b><br>امتیاز: <b>'+Number(x.total_score||0).toFixed(2)+'</b> از <b>'+Number(x.max_score||0).toFixed(2)+'</b><br>درصد: <b>'+Number(x.percentage||0).toFixed(2)+'%</b><br><span class="ok">آزمون با موفقیت ثبت و تصحیح شد.</span>')}
+async function init(){if(!token||!code){setmsg('توکن لینک و کد دانش‌آموز الزامی است.','err');return}setmsg('در حال شروع آزمون...');const r=await sb.rpc('v5_start_exam',{p_token:token,p_student_code:code});if(r.error){setmsg('شروع آزمون انجام نشد: '+r.error.message,'err');return}attempt=Array.isArray(r.data)?r.data[0]:r.data;if(!attempt||attempt.status!=='started'){setmsg('این آزمون فعال نیست.','err');return}const q=await sb.rpc('v5_get_exam_questions',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(q.error){setmsg('دریافت سؤال‌ها انجام نشد: '+q.error.message,'err');return}questions=q.data||[];if(!questions.length){setmsg('هیچ سؤالی برای این آزمون دریافت نشد.','err');return}const st=await sb.rpc('v5_get_attempt_state',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(st.error){setmsg('دریافت وضعیت آزمون انجام نشد: '+st.error.message,'err');return}const state=st.data;$('loading').hidden=true;$('exam').hidden=false;$('title').textContent=attempt.title||'آزمون';$('student').textContent=attempt.student_name||code;render(state?.answers||[]);startTimer(state||attempt)}
+$('submit').onclick=()=>submitExam(false);
+init().catch(e=>setmsg('خطای سامانه: '+e.message,'err'));
+</script>
+</main>
+</body>
+</html>

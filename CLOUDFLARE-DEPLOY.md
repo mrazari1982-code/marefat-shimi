@@ -1,66 +1,59 @@
-# استقرار سامانه معرفت روی Cloudflare
+# انتشار اصلاح‌شده سامانه معرفت
 
-## وضعیت فعلی
+## علت اصلاح
 
-نسخه اصلی سامانه روی Cloudflare Workers مستقر شده و به مخزن GitHub متصل است:
+تنظیمات پیش‌فرض قبلی مربوط به Pages بود، اما انتشار با Workers انجام می‌شد.
+تنظیمات دوم کل مخزن را به‌عنوان فایل عمومی آپلود می‌کرد. اکنون هر دو فایل
+Wrangler فقط پوشه public را منتشر می‌کنند. HTMLها و auto-link.js بدون تغییر
+محتوا به این پوشه منتقل شده‌اند؛ آدرس صفحات روی سایت تغییر نمی‌کند.
+SQL، تست‌ها، فایل‌های تنظیمات و مستندات بیرون از public باقی می‌مانند.
 
-- Worker: `marefat-shimi`
-- Production URL: `https://marefat-shimi.m-r-azari-1982.workers.dev/`
-- GitHub repository: `mrazari1982-code/marefat-shimi`
-- Production branch: `main`
-- Database/Backend: Supabase
-- Frontend: HTML/CSS/JavaScript
+## تنظیمات Cloudflare Workers Builds
 
-> نکته: مستندات قدیمی این فایل به Cloudflare Pages اشاره می‌کردند. اکنون استقرار واقعی پروژه روی **Cloudflare Workers** انجام شده است؛ بنابراین تنظیمات فعلی Dashboard و Wrangler باید مبنای عملیات قرار گیرند.
+برای Worker با نام marefat-shimi و شاخه اصلی main:
 
-## معماری انتشار
+| گزینه | مقدار |
+| --- | --- |
+| Root directory | ریشه مخزن؛ نه public |
+| Build command | خالی؛ سایت به مرحله ساخت نیاز ندارد |
+| Deploy command | `npx wrangler deploy --config wrangler.jsonc` |
+| Non-production deploy command، در صورت فعال بودن | `npx wrangler versions upload --config wrangler.jsonc` |
 
-```text
-GitHub (main)
-      |
-      v
-Cloudflare Workers
-      |
-      v
-marefat-shimi.m-r-azari-1982.workers.dev
-      |
-      v
-Supabase
+فرمان deploy را در بخش Build قرار ندهید. فایل wrangler-cloudflare.jsonc
+برای سازگاری با فرمان قبلی حفظ شده و همان تنظیمات امن را دارد.
+فقط پوشه public را به GitHub نفرستید؛ کل محتوای این پروژه باید در ریشه مخزن
+قرار بگیرد، بدون پوشه اضافی marefat-shimi-main درون مخزن.
+نسخه جدید صفحات را فقط داخل public ویرایش کنید.
+
+## بررسی پیش از انتشار
+
+```bash
+python3 tests/deployment-safety.py
+node tests/question-manager-selection.js
+npx wrangler deploy --dry-run --config wrangler.jsonc
 ```
 
-## قواعد انتشار
+دو تست اول محلی هستند. دستور سوم به نصب Wrangler نیاز دارد و انتشار انجام نمی‌دهد.
 
-1. هر تغییر ابتدا در GitHub و در یک Commit مشخص ثبت شود.
-2. همان Commit باید مبنای Deployment باشد.
-3. قبل از حذف یا تغییر مسیر پشتیبان، مسیر کامل آزمون روی Production بررسی شود.
-4. Database همچنان روی Supabase باقی می‌ماند و با Deployment فرانت‌اند جابه‌جا نمی‌شود.
-5. هیچ Secret یا `service_role` key نباید در فایل‌های Frontend یا Repository قرار گیرد.
+## بررسی پس از انتشار
 
-## چک‌لیست Production
+1. صفحه اصلی، ورود مدیر، ورود دانش‌آموز، آزمون و کارنامه را باز کنید.
+2. در Network مرورگر بررسی کنید مسیرهای زیر محتوای فایل داخلی را برنگردانند
+   و وضعیت HTTP 404 داشته باشند: `/.git/HEAD`، `/supabase.sql`،
+   `/staging/seed.sql`، `/wrangler.jsonc`، `/tests/question-manager-selection.js`.
+3. مسیر کامل آزمون را با حساب و داده آزمایشی اجرا کنید؛ ثبت نهایی روی داده واقعی انجام نشود.
+4. نسخه‌ها و Preview URLهای قدیمی که ممکن است فایل‌های داخلی داشته باشند بررسی شوند.
+   این بسته به‌تنهایی دسترسی به نسخه‌های قدیمی را حذف نمی‌کند.
+5. اگر فایل یا تاریخچه Git قبلاً کلید محرمانه داشته است، آن کلید باید در سرویس مربوط
+   باطل و جایگزین شود. وجود کلید محرمانه با بررسی این ZIP به‌تنهایی قابل رد یا تأیید نیست.
 
-- [ ] باز شدن URL اصلی Worker
-- [ ] بارگذاری صفحه ورود آزمون
-- [ ] اتصال Supabase
-- [ ] اعتبارسنجی لینک آزمون
-- [ ] ورود دانش‌آموز
-- [ ] شروع آزمون
-- [ ] دریافت سؤال‌ها بدون answer key
-- [ ] ذخیره پاسخ
-- [ ] بازیابی پاسخ‌ها
-- [ ] تایمر و پایان زمان
-- [ ] ثبت نهایی
-- [ ] کارنامه
-- [ ] ورود مدیر
-- [ ] بانک سؤال
-- [ ] ساخت و انتشار آزمون
-- [ ] ایجاد لینک
-- [ ] گزارش و تحلیل آموزشی
-- [ ] تست دسترسی‌های غیرمجاز
+## محدوده این اصلاح
 
-## وضعیت Backup
+هیچ SQL یا تغییر دیتابیسی اجرا نشده است. محتوا و منطق صفحات تغییر نکرده‌اند.
+تست کامل Supabase، RLS، ورود و محاسبه نمره نیازمند بررسی محیط واقعی است.
+فایل‌های staging که در لاگ قبلی نام برده شده‌اند در ZIP ورودی حاضر نیستند؛
+این بسته جایگزین بررسی یا بازیابی آن‌ها نیست.
 
-Netlify به‌عنوان مسیر پشتیبان/سابقه حذف یا تخریب نمی‌شود تا زمانی که تست کامل Production روی Cloudflare انجام نشده باشد.
-
-## محدودیت فعلی
-
-تست مرورگر تعاملی و مشاهده Console/Network در این محیط به Dashboard یا مرورگر کاربر وابسته است. در صورت مشاهده خطا در URL بالا، متن خطا یا تصویر صفحه برای بررسی دقیق لازم است.
+مراجع:
+- https://developers.cloudflare.com/workers/static-assets/binding/
+- https://developers.cloudflare.com/workers/ci-cd/builds/configuration/

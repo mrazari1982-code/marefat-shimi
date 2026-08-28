@@ -1,0 +1,9 @@
+Local verification: 2026-08-28
+Deployment safety: 2 tests passed (failed before fix).
+Existing question selection test: passed; standalone helper only, not browser coverage.
+22 public files: byte-identical to source ZIP.
+21 inline JavaScript scripts: node --check passed.
+Static local href/src references: resolved.
+No database changes or production deployment performed.
+Wrangler dry-run: unavailable; package installation did not complete within 25 seconds.
+Browser, authentication, RLS and end-to-end exam flow: NOT verified.
