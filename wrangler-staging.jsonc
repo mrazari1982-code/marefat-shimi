@@ -1,0 +1,7 @@
+{
+  "name": "marefat-shimi-test",
+  "compatibility_date": "2026-08-28",
+  "assets": {
+    "directory": "./.staging-dist"
+  }
+}

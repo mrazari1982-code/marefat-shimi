@@ -17,19 +17,78 @@ body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin
 <script>
 const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-const p=new URLSearchParams(location.search),token=p.get('token')||'',code=p.get('student_code')||'';
-let attempt=null,questions=[],timerId=null,submitting=false,expired=false;
+const p=new URLSearchParams(location.search),token=p.get('token')||'';
+let code=p.get('student_code')||'';
+let attempt=null,questions=[],timerId=null,submitting=false,expired=false,timeEnded=false;
+let saveQueue=Promise.resolve();
+const failedAnswers=new Map();
 function setmsg(t,c='muted'){$('msg').className=c;$('msg').textContent=t}
 function groups(){const m=new Map();for(const x of questions){if(!m.has(x.id))m.set(x.id,{id:x.id,order:x.question_order,text:x.question_text,options:[]});m.get(x.id).options.push({id:x.option_id,key:x.option_key,text:x.option_text,sort:x.sort_order})}return [...m.values()].sort((a,b)=>a.order-b.order).map(q=>({...q,options:q.options.sort((a,b)=>a.sort-b.sort)}))}
 function progress(){const g=groups(),n=g.filter(q=>document.querySelector('input[name="q_'+q.id+'"]:checked')).length;$('progress').textContent=n+' از '+g.length+' پاسخ داده شده — '+(g.length-n)+' سؤال بدون پاسخ'}
-function lockExam(){expired=true;document.querySelectorAll('input[type=radio]').forEach(x=>x.disabled=true);$('submit').disabled=true}
-function showFinal(html){clearInterval(timerId);$('exam').hidden=true;$('loading').hidden=true;$('result').hidden=false;$('resultText').innerHTML=html}
+function lockExam(){document.querySelectorAll('input[type=radio]').forEach(x=>x.disabled=true);$('submit').disabled=true}
+function showFinal(html){expired=true;clearInterval(timerId);$('exam').hidden=true;$('loading').hidden=true;$('result').hidden=false;$('resultText').innerHTML=html}
 function render(saved){const g=groups();$('questions').innerHTML=g.map((q,i)=>'<section class="q"><p><b>'+(i+1)+') '+esc(q.text)+'</b></p>'+q.options.map(o=>'<label class="opt"><input type="radio" name="q_'+q.id+'" value="'+o.id+'" data-eq="'+q.id+'"> <b>'+esc(o.key)+'</b> '+esc(o.text)+'</label>').join('')+'</section>').join('');$('questions').addEventListener('change',e=>{if(e.target.matches('input[type=radio]'))saveAnswer(e.target)});for(const a of saved||[]){const el=document.querySelector('input[name="q_'+a.exam_question_id+'"][value="'+a.selected_option_id+'"]');if(el)el.checked=true}progress()}
-async function saveAnswer(el){if(submitting||expired)return;$('save').className='muted';$('save').textContent='در حال ذخیره پاسخ...';const r=await sb.rpc('v5_save_answer',{p_attempt_id:attempt.attempt_id,p_exam_question_id:Number(el.dataset.eq),p_selected_option_id:Number(el.value),p_student_code:code});if(r.error){$('save').className='err';$('save').textContent='ذخیره پاسخ انجام نشد: '+r.error.message;return}const x=Array.isArray(r.data)?r.data[0]:r.data;if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است و پاسخ جدیدی ثبت نشد.</span>');return}if(!x?.saved){$('save').className='err';$('save').textContent='پاسخ ذخیره نشد.';return}$('save').className='ok';$('save').textContent='پاسخ ذخیره شد.';progress()}
-function startTimer(st){const mins=Number(st.duration_minutes||0);if(!mins){$('timer').textContent='زمان آزمون: بدون محدودیت';return}const end=new Date(st.started_at).getTime()+mins*60000;const tick=()=>{const left=Math.max(0,Math.ceil((end-Date.now())/1000));$('timer').textContent='زمان باقی‌مانده: '+String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');if(left<=0){clearInterval(timerId);submitExam(true)}};tick();timerId=setInterval(tick,1000)}
-async function submitExam(force=false){if(!attempt||submitting||expired)return;if(!force&&!confirm('آیا از ثبت نهایی آزمون مطمئن هستید؟'))return;submitting=true;$('submit').disabled=true;$('save').className='muted';$('save').textContent='در حال ثبت نهایی...';const r=await sb.rpc('v5_submit_attempt',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(r.error){$('save').className='err';$('save').textContent='ثبت نهایی انجام نشد: '+r.error.message;submitting=false;$('submit').disabled=false;return}const x=Array.isArray(r.data)?r.data[0]:r.data;if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است. آزمون منقضی شد.</span>');return}if(x?.status!=='submitted'){showFinal('<span class="err">وضعیت آزمون: '+esc(x?.status||'نامشخص')+'</span>');return}if(x.show_result===false){showFinal('<span class="ok">آزمون با موفقیت ثبت شد.</span><br><span class="muted">نمایش کارنامه برای این آزمون غیرفعال است.</span>');return}showFinal('صحیح: <b>'+Number(x.correct_answers||0)+'</b> | غلط: <b>'+Number(x.wrong_answers||0)+'</b> | نزده: <b>'+Number(x.unanswered_questions||0)+'</b><br>امتیاز: <b>'+Number(x.total_score||0).toFixed(2)+'</b> از <b>'+Number(x.max_score||0).toFixed(2)+'</b><br>درصد: <b>'+Number(x.percentage||0).toFixed(2)+'%</b><br><span class="ok">آزمون با موفقیت ثبت و تصحیح شد.</span>')}
-async function init(){if(!token||!code){setmsg('توکن لینک و کد دانش‌آموز الزامی است.','err');return}setmsg('در حال شروع آزمون...');const r=await sb.rpc('v5_start_exam',{p_token:token,p_student_code:code});if(r.error){setmsg('شروع آزمون انجام نشد: '+r.error.message,'err');return}attempt=Array.isArray(r.data)?r.data[0]:r.data;if(!attempt||attempt.status!=='started'){setmsg('این آزمون فعال نیست.','err');return}const q=await sb.rpc('v5_get_exam_questions',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(q.error){setmsg('دریافت سؤال‌ها انجام نشد: '+q.error.message,'err');return}questions=q.data||[];if(!questions.length){setmsg('هیچ سؤالی برای این آزمون دریافت نشد.','err');return}const st=await sb.rpc('v5_get_attempt_state',{p_attempt_id:attempt.attempt_id,p_student_code:code});if(st.error){setmsg('دریافت وضعیت آزمون انجام نشد: '+st.error.message,'err');return}const state=st.data;$('loading').hidden=true;$('exam').hidden=false;$('title').textContent=attempt.title||'آزمون';$('student').textContent=attempt.student_name||code;render(state?.answers||[]);startTimer(state||attempt)}
-$('submit').onclick=()=>submitExam(false);
+function saveAnswer(el){
+ if(submitting||expired||timeEnded)return Promise.resolve();
+ const payload={p_attempt_id:attempt.attempt_id,p_exam_question_id:Number(el.dataset.eq),p_selected_option_id:Number(el.value),p_student_code:code};
+ progress();
+ saveQueue=saveQueue.then(async()=>{
+  if(expired||timeEnded)return;
+  $('save').className='muted';$('save').textContent='در حال ذخیره پاسخ...';
+  try{
+   const r=await sb.rpc('v5_save_answer',payload);if(r.error)throw r.error;
+   const x=Array.isArray(r.data)?r.data[0]:r.data;
+   if(x?.status==='submitted'&&!x.saved){timeEnded=true;lockExam();return}
+   if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است و پاسخ جدیدی ثبت نشد.</span>');return}
+   if(!x?.saved)throw new Error('پاسخ ذخیره نشد.');
+   failedAnswers.delete(payload.p_exam_question_id);
+   $('save').className=failedAnswers.size?'err':'ok';
+   $('save').textContent=failedAnswers.size?'برخی پاسخ‌ها ذخیره نشده‌اند. گزینه‌های آن سؤال‌ها را دوباره انتخاب کنید.':'پاسخ ذخیره شد.';
+  }catch(e){
+   failedAnswers.set(payload.p_exam_question_id,payload);
+   $('save').className='err';$('save').textContent='ذخیره پاسخ انجام نشد: '+e.message+' — گزینه این سؤال را دوباره انتخاب کنید.';
+  }
+ });
+ return saveQueue.then(()=>{if(timeEnded&&!submitting&&!expired)return submitExam(true)});
+}
+function startTimer(st){
+ clearInterval(timerId);
+ const mins=Number(st.duration_minutes||0);
+ const end=st.deadline_at?new Date(st.deadline_at).getTime():(mins?new Date(st.started_at).getTime()+mins*60000:null);
+ if(end===null){$('timer').textContent='زمان آزمون: بدون محدودیت';return}
+ if(!Number.isFinite(end)){$('timer').textContent='زمان آزمون قابل دریافت نیست.';return}
+ const offset=st.server_now?new Date(st.server_now).getTime()-(st.received_at??Date.now()):0;
+ let retryAt=0;
+ const tick=()=>{
+  const left=Math.max(0,Math.ceil((end-(Date.now()+offset))/1000));
+  $('timer').textContent='زمان باقی‌مانده: '+String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');
+  if(left<=0){timeEnded=true;lockExam();if(!submitting&&!expired&&Date.now()>=retryAt){retryAt=Date.now()+5000;submitExam(true)}}
+ };
+ timerId=setInterval(tick,1000);tick();
+}
+async function submitExam(force=false){if(!attempt||submitting||expired)return;if(!force&&!confirm('آیا از ثبت نهایی آزمون مطمئن هستید؟'))return;submitting=true;lockExam();await saveQueue;if(expired){submitting=false;return}if(failedAnswers.size&&!force){submitting=false;$('submit').disabled=false;if(!timeEnded)document.querySelectorAll('input[type=radio]').forEach(x=>x.disabled=false);$('save').className='err';$('save').textContent='ثبت نهایی متوقف شد: پاسخ‌های ذخیره‌نشده را دوباره انتخاب کنید.';return}$('save').className='muted';$('save').textContent='در حال ثبت نهایی...';let r;try{r=await sb.rpc('v5_submit_attempt',{p_attempt_id:attempt.attempt_id,p_student_code:code})}catch(e){r={error:e}};if(r.error){$('save').className='err';$('save').textContent='ثبت نهایی انجام نشد: '+r.error.message;submitting=false;$('submit').disabled=false;if(!timeEnded)document.querySelectorAll('input[type=radio]').forEach(x=>x.disabled=false);return}const x=Array.isArray(r.data)?r.data[0]:r.data;if(x?.status==='expired'){lockExam();showFinal('<span class="err">زمان آزمون به پایان رسیده است. آزمون منقضی شد.</span>');return}if(x?.status!=='submitted'){showFinal('<span class="err">وضعیت آزمون: '+esc(x?.status||'نامشخص')+'</span>');return}if(x.show_result===false){showFinal('<span class="ok">آزمون با موفقیت ثبت شد.</span><br><span class="muted">نمایش کارنامه برای این آزمون غیرفعال است.</span>');return}showFinal('صحیح: <b>'+Number(x.correct_answers||0)+'</b> | غلط: <b>'+Number(x.wrong_answers||0)+'</b> | نزده: <b>'+Number(x.unanswered_questions||0)+'</b><br>امتیاز: <b>'+Number(x.total_score||0).toFixed(2)+'</b> از <b>'+Number(x.max_score||0).toFixed(2)+'</b><br>درصد: <b>'+Number(x.percentage||0).toFixed(2)+'%</b><br><span class="ok">آزمون با موفقیت ثبت و تصحیح شد.</span>')}
+async function init(){
+ if(!token||!code){setmsg('توکن لینک و کد دانش‌آموز الزامی است.','err');return}
+ setmsg('در حال شروع آزمون...');
+ const r=await sb.rpc('v5_start_exam',{p_token:token,p_student_code:code});
+ if(r.error){setmsg('شروع آزمون انجام نشد: '+r.error.message,'err');return}
+ attempt=Array.isArray(r.data)?r.data[0]:r.data;
+ if(!attempt){setmsg('این آزمون فعال نیست.','err');return}
+ code=attempt.student_code||code;
+ if(attempt.status==='submitted'||attempt.status==='already_submitted'){await submitExam(true);return}
+ if(attempt.status!=='started'){setmsg('این آزمون فعال نیست.','err');return}
+ const st=await sb.rpc('v5_get_attempt_state',{p_attempt_id:attempt.attempt_id,p_student_code:code});
+ if(st.error){setmsg('دریافت وضعیت آزمون انجام نشد: '+st.error.message,'err');return}
+ const state=st.data||attempt;state.received_at=Date.now();
+ if(state.status==='submitted'){await submitExam(true);return}
+ const q=await sb.rpc('v5_get_exam_questions',{p_attempt_id:attempt.attempt_id,p_student_code:code});
+ if(q.error){if(/EXAM_TIME_EXPIRED|EXAM_NOT_ACTIVE/.test(q.error.message)){await submitExam(true);return}setmsg('دریافت سؤال‌ها انجام نشد: '+q.error.message,'err');return}
+ questions=q.data||[];
+ if(!questions.length){setmsg('هیچ سؤالی برای این آزمون دریافت نشد.','err');return}
+ $('loading').hidden=true;$('exam').hidden=false;$('title').textContent=attempt.title||'آزمون';$('student').textContent=attempt.student_name||code;
+ render(state.answers||[]);startTimer(state);
+}
+$('submit').onclick=()=>submitExam(timeEnded);
 init().catch(e=>setmsg('خطای سامانه: '+e.message,'err'));
 </script>
 </main>
