@@ -14,15 +14,18 @@ function page(file, rpc, search = '') {
     return nodes.get(id);
   };
   const client = {rpc,auth:{getSession:async()=>({data:{session:null}})}};
-  const context = vm.createContext({URL,URLSearchParams,console,Map,Set,Promise,Date,
+  const intervals=new Map();let timerNumber=0;
+  const radios=[{disabled:false}];
+  const context = vm.createContext({URL,URLSearchParams,console,Map,Set,Promise,Date:class extends Date {static now(){return Date.now()}},
     supabase:{createClient:()=>client}, window:{supabase:{createClient:()=>client}},
     location:{origin:'https://example.test',pathname:'/school/'+file,search,href:''},
-    document:{getElementById:get,querySelector:()=>null,querySelectorAll:()=>[]},
-    confirm:()=>true,setInterval:()=>1,clearInterval(){},setTimeout,clearTimeout});
+    document:{getElementById:get,querySelector:()=>null,querySelectorAll:s=>s==='input[type=radio]'?radios:[]},
+    confirm:()=>true,setInterval:fn=>{intervals.set(++timerNumber,fn);return timerNumber},
+    clearInterval:id=>intervals.delete(id),setTimeout,clearTimeout});
   const html=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(x=>x[1]).join('\n');
   vm.runInContext(scripts,context);
-  return {run:code=>vm.runInContext(code,context),get,context};
+  return {run:code=>vm.runInContext(code,context),get,context,intervals,radios};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('submit waits for the selected answer to finish saving',async()=>{
@@ -50,7 +53,7 @@ test('canonical student code returned by start is used for subsequent requests',
   const codes=[];const p=page('exam.html',async(name,args)=>{
     if(name==='v5_start_exam')return {data:{attempt_id:'test',status:'started',student_code:'TEST-ONE'}};
     codes.push(args.p_student_code);return {data:[]};
-  },'?token=test&student_code=test-one');await tick();assert.deepEqual(codes,['TEST-ONE']);
+  },'?token=test&student_code=test-one');await tick();assert.deepEqual(codes,['TEST-ONE','TEST-ONE']);
 });
 test('publishing links preserves a subdirectory deployment',async()=>{
   const p=page('admin-exam-publish.html',async()=>({data:[]}));await tick();
@@ -64,4 +67,29 @@ test('analytics uses attempt totals rather than averaging student averages',asyn
   }}));await tick();await p.run('load()');
   assert.equal(p.get('n').textContent,3);assert.equal(p.get('avg').textContent,'66.67%');
   assert.equal(p.get('min').textContent,'0.00%');
+});
+test('server deadline finalizes even without a duration and locks answers immediately',async()=>{
+  const calls=[];let finish;
+  const p=page('exam.html',name=>{calls.push(name);return new Promise(r=>finish=()=>r({data:{status:'submitted',show_result:false}}))});
+  p.run("attempt={attempt_id:'test'}; startTimer({duration_minutes:null,deadline_at:new Date(Date.now()-1000).toISOString(),server_now:new Date().toISOString()})");
+  await tick();assert.deepEqual(calls,['v5_submit_attempt']);assert.equal(p.radios[0].disabled,true);
+  finish();await tick();assert.equal(p.intervals.size,0);
+});
+test('automatic submit retries after a network error while answers remain locked',async()=>{
+  let calls=0;const p=page('exam.html',async()=>++calls===1?{error:{message:'offline'}}:{data:{status:'submitted',show_result:false}});
+  p.run("attempt={attempt_id:'test'}; startTimer({duration_minutes:1,started_at:new Date(Date.now()-120000).toISOString()})");await tick();
+  assert.equal(p.radios[0].disabled,true);assert.equal(p.intervals.size,1);
+  p.run('const testNow=Date.now();Date.now=()=>testNow+5001');
+  for(const fn of [...p.intervals.values()])fn();await tick();
+  assert.equal(calls,2);assert.equal(p.intervals.size,0);assert.equal(p.get('result').hidden,false);
+});
+test('a late-save response with submitted status retrieves the final result',async()=>{
+  const calls=[];const p=page('exam.html',async name=>{calls.push(name);return name==='v5_save_answer'?{data:{saved:false,status:'submitted'}}:{data:{status:'submitted',show_result:true,percentage:100,correct_answers:1}}});
+  p.run("attempt={attempt_id:'test'}");await p.run("saveAnswer({dataset:{eq:'1'},value:'2'})");await tick();
+  assert.deepEqual(calls,['v5_save_answer','v5_submit_attempt']);assert.match(p.get('resultText').innerHTML,/100\.00/);
+});
+test('question loading time does not extend the displayed deadline',()=>{
+  const p=page('exam.html',async()=>({data:[]}));
+  p.run("Date.now=()=>110000;startTimer({deadline_at:new Date(160000).toISOString(),server_now:new Date(100000).toISOString(),received_at:100000})");
+  assert.match(p.get('timer').textContent,/00:50/);
 });
