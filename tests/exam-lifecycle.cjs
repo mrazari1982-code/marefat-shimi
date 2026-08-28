@@ -1,0 +1,30 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const path = process.env.EXAM_HTML || require('node:path').join(__dirname,'../public/exam.html');
+let source = fs.readFileSync(path,'utf8').match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+source = source.replace("init().catch(e=>setmsg('خطای سامانه: '+e.message,'err'));",'');
+function harness(rpc=async()=>({data:{}}),wall=Date.parse('2026-08-28T20:00:00Z')) {
+ const elements=new Map(),calls=[],intervals=new Map(); let mono=0,id=0;
+ class Clock extends Date {static now(){return wall;}}
+ const doc={getElementById(k){if(!elements.has(k)) elements.set(k,{textContent:'',innerHTML:'',hidden:true,disabled:false});return elements.get(k);},querySelectorAll(){return [];}};
+ const ctx=vm.createContext({document:doc,Date:Clock,performance:{now:()=>mono},URLSearchParams,location:{search:'?token=synthetic&student_code=synthetic'},supabase:{createClient:()=>({rpc:async(n,p)=>{calls.push(n);return rpc(n,p);}})},setInterval(fn){intervals.set(++id,fn);return id;},clearInterval(i){intervals.delete(i);},confirm:()=>true});
+ vm.runInContext(source,ctx);
+ return {ctx,elements,calls,intervals,tick(ms){mono+=ms;for(const f of [...intervals.values()])f();},changeWall(ms){wall+=ms;},run(s){return vm.runInContext(s,ctx);}};
+}
+const state={duration_minutes:10,started_at:'2026-08-28T19:55:00Z',deadline_at:'2026-08-28T20:05:00Z',server_now:'2026-08-28T20:00:00Z'};
+const result={status:'submitted',correct_answers:4,wrong_answers:2,unanswered_questions:2,total_score:4,max_score:8,percentage:50};
+const tests=[];function test(name,fn){tests.push([name,fn]);}
+test('normal server timer',()=>{const h=harness();h.run(`startTimer(${JSON.stringify(state)})`);assert.match(h.elements.get('timer').textContent,/05:00$/);});
+test('slow and fast device clocks do not alter remaining time',()=>{for(const skew of [-300000,300000]){const h=harness(undefined,Date.parse(state.server_now)+skew);h.run(`startTimer(${JSON.stringify(state)})`);assert.match(h.elements.get('timer').textContent,/05:00$/);}});
+test('device clock changes do not extend a running timer',()=>{const h=harness();h.run(`startTimer(${JSON.stringify(state)})`);h.changeWall(-3600000);h.tick(60000);assert.match(h.elements.get('timer').textContent,/04:00$/);});
+test('earlier server deadline takes priority',()=>{const h=harness();h.run(`startTimer(${JSON.stringify({...state,deadline_at:'2026-08-28T20:01:00Z'})})`);assert.match(h.elements.get('timer').textContent,/01:00$/);});
+test('end_at applies even with no duration',()=>{const h=harness();h.run(`startTimer(${JSON.stringify({...state,duration_minutes:null,deadline_at:'2026-08-28T20:01:00Z'})})`);assert.match(h.elements.get('timer').textContent,/01:00$/);});
+test('unlimited duration without deadline remains unlimited',()=>{const h=harness();h.run(`startTimer(${JSON.stringify({...state,duration_minutes:null,deadline_at:null})})`);assert.match(h.elements.get('timer').textContent,/بدون محدودیت/);assert.equal(h.intervals.size,0);});
+test('already expired timer submits only once without interval leak',async()=>{const h=harness(async()=>({data:result}));h.run("attempt={attempt_id:'test'}");h.run(`startTimer(${JSON.stringify({...state,deadline_at:state.server_now})})`);await new Promise(setImmediate);assert.deepEqual(h.calls,['v5_submit_attempt']);assert.equal(h.intervals.size,0);assert.match(h.elements.get('resultText').innerHTML,/50.00%/);});
+test('reopening submitted attempt shows result without fetching questions',async()=>{const h=harness(async n=>({data:n==='v5_start_exam'?{status:'submitted',attempt_id:'test'}:result}));await h.run('init()');assert.deepEqual(h.calls,['v5_start_exam','v5_submit_attempt']);assert.equal(h.elements.get('result').hidden,false);assert.match(h.elements.get('resultText').innerHTML,/50.00%/);});
+test('hidden result policy is honored on reopen',async()=>{const h=harness(async n=>({data:n==='v5_start_exam'?{status:'submitted',attempt_id:'test'}:{status:'submitted',show_result:false}}));await h.run('init()');assert.match(h.elements.get('resultText').innerHTML,/غیرفعال/);assert.doesNotMatch(h.elements.get('resultText').innerHTML,/%/);});
+test('expiry between questions and state fetch shows final result',async()=>{const h=harness(async n=>({data:n==='v5_start_exam'?{status:'started',attempt_id:'test'}:n==='v5_get_exam_questions'?[{id:1}]:n==='v5_get_attempt_state'?{status:'submitted'}:result}));await h.run('init()');assert.match(h.elements.get('resultText').innerHTML,/50.00%/);});
+test('late save returning submitted shows final result',async()=>{const h=harness(async n=>({data:n==='v5_save_answer'?{status:'submitted',saved:false}:result}));h.run("attempt={attempt_id:'test'}");await h.run("saveAnswer({dataset:{eq:'1'},value:'2'})");assert.match(h.elements.get('resultText').innerHTML,/50.00%/);});
+test('reopen result fetch failure is visible',async()=>{const h=harness(async n=>n==='v5_start_exam'?{data:{status:'submitted',attempt_id:'test'}}:{error:{message:'Network unavailable'}});await h.run('init()');assert.match(h.elements.get('msg').textContent,/Network unavailable/);assert.equal(h.elements.get('msg').className,'err');});
+(async()=>{let failed=0;for(const [name,fn] of tests){try{await fn();console.log('PASS '+name);}catch(e){failed++;console.log('FAIL '+name+'\n'+e.message);}}console.log(`${tests.length-failed}/${tests.length} passed`);if(failed)process.exitCode=1;})();
