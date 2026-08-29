@@ -19,13 +19,25 @@ class DeploymentSafety(unittest.TestCase):
                 self.assertTrue(files)
                 for p in files:
                     self.assertFalse(p.is_symlink())
-                    self.assertEqual(p.parent, asset_root, 'Internal directories must not be published')
-                    self.assertTrue(p.suffix == '.html' or p.name in {'auto-link.js', 'student-auth.js'}, p.name)
+                    relative = p.relative_to(asset_root).as_posix()
+                    if p.parent == asset_root:
+                        self.assertTrue(p.suffix == '.html' or p.name in {
+                            'auto-link.js', 'student-auth.js', 'student-import.js'
+                        }, relative)
+                    else:
+                        self.assertIn(relative, {
+                            'vendor/exceljs-4.4.0.min.js', 'vendor/EXCELJS-LICENSE.txt'
+                        }, relative)
     def test_required_routes_exist(self):
         for name in ('index.html', 'exam-access.html', 'exam.html', 'student-result.html',
                      'student-login.html', 'admin-student-password.html',
+                     'admin-student-import.html',
                      'admin-login-v2.html', 'admin-panel.html', 'admin-question-bank.html'):
             self.assertTrue((ROOT / 'public' / name).is_file(), name)
+
+    def test_student_management_links_to_bulk_import(self):
+        html = (ROOT / 'public' / 'students.html').read_text()
+        self.assertIn('href="admin-student-import.html"', html)
 
 if __name__ == '__main__':
     unittest.main()
