@@ -7,8 +7,8 @@ new Function(source)();
 const api = globalThis.MarefatStudentImport;
 
 const lookups = {
-  grades: [{id: 1, name: 'دهم'}],
-  fields: [{id: 10, name: 'ریاضی'}],
+  grades: [{id: 1, name: 'دهم'}, {id: 2, name: '-بدون پایه'}],
+  fields: [{id: 10, name: 'ریاضی'}, {id: 11, name: '+عمومی'}],
   classes: [{id: 100, name: '۱۰۱', grade_id: 1, field_id: 10}]
 };
 
@@ -20,8 +20,23 @@ const lookups = {
   const templateBytes = await api.buildTemplate(lookups, ExcelJS);
   const template = new ExcelJS.Workbook();
   await template.xlsx.load(templateBytes);
-  assert.deepEqual(template.worksheets.map(x => x.name), ['دانش‌آموزان', 'راهنما']);
-  assert.equal(template.getWorksheet('دانش‌آموزان').getCell('A2').numFmt, '@');
+  assert.deepEqual(template.worksheets.map(x => x.name), ['دانش‌آموزان', 'راهنما', 'فهرست‌ها']);
+  const studentSheet = template.getWorksheet('دانش‌آموزان');
+  assert.equal(studentSheet.getCell('A2').numFmt, '@');
+  assert.deepEqual(studentSheet.getCell('C2').dataValidation, {
+    type: 'list', allowBlank: true, formulae: ["'فهرست‌ها'!$A$2:$A$3"]
+  }, 'grade must be selected from the active grade list');
+  assert.deepEqual(studentSheet.getCell('D2').dataValidation, {
+    type: 'list', allowBlank: true, formulae: ["'فهرست‌ها'!$B$2:$B$3"]
+  }, 'field must be selected from the active field list');
+  assert.deepEqual(studentSheet.getCell('C501').dataValidation, studentSheet.getCell('C2').dataValidation,
+    'dropdowns must cover all 500 allowed data rows');
+  const lists = template.getWorksheet('فهرست‌ها');
+  assert.equal(lists.state, 'veryHidden');
+  assert.equal(lists.getCell('A2').value, 'دهم');
+  assert.equal(lists.getCell('B2').value, 'ریاضی');
+  assert.equal(lists.getCell('A3').value, '-بدون پایه', 'lookup names must remain exact text');
+  assert.equal(lists.getCell('B3').value, '+عمومی', 'formula-like lookup names must remain exact text');
   assert.match(template.getWorksheet('راهنما').getCell('A1').value, /محرمانه/);
 
   const input = new ExcelJS.Workbook();
