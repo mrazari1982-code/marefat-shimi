@@ -148,6 +148,25 @@
     guide.addRow(['کلاس‌های فعال', ...(context.classes || []).map(item => safeExcelText(item.name))]);
     guide.getColumn(1).width = 86;
     guide.views = [{rightToLeft: true}];
+
+    const lists = workbook.addWorksheet('فهرست‌ها', {state: 'veryHidden'});
+    lists.addRow(['پایه‌ها', 'رشته‌ها']);
+    const grades = (context.grades || []).map(item => clean(item.name));
+    const fields = (context.fields || []).map(item => clean(item.name));
+    const listLength = Math.max(grades.length, fields.length);
+    for (let index = 0; index < listLength; index += 1) {
+      lists.addRow([grades[index] || '', fields[index] || '']);
+    }
+    if (grades.length) {
+      students.dataValidations.add('C2:C501', {
+        type: 'list', allowBlank: true, formulae: [`'فهرست‌ها'!$A$2:$A$${grades.length + 1}`]
+      });
+    }
+    if (fields.length) {
+      students.dataValidations.add('D2:D501', {
+        type: 'list', allowBlank: true, formulae: [`'فهرست‌ها'!$B$2:$B$${fields.length + 1}`]
+      });
+    }
     return workbook.xlsx.writeBuffer();
   }
 
