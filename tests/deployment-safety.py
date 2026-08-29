@@ -20,9 +20,10 @@ class DeploymentSafety(unittest.TestCase):
                 for p in files:
                     self.assertFalse(p.is_symlink())
                     self.assertEqual(p.parent, asset_root, 'Internal directories must not be published')
-                    self.assertTrue(p.suffix == '.html' or p.name == 'auto-link.js', p.name)
+                    self.assertTrue(p.suffix == '.html' or p.name in {'auto-link.js', 'student-auth.js'}, p.name)
     def test_required_routes_exist(self):
         for name in ('index.html', 'exam-access.html', 'exam.html', 'student-result.html',
+                     'student-login.html', 'admin-student-password.html',
                      'admin-login-v2.html', 'admin-panel.html', 'admin-question-bank.html'):
             self.assertTrue((ROOT / 'public' / name).is_file(), name)
 
