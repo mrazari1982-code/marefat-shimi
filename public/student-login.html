@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ورود دانش‌آموز | سامانه معرفت</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="student-auth.js"></script>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:460px;margin:8vh auto;padding:18px}.card{background:#fff;border-radius:18px;padding:26px;box-shadow:0 3px 18px #0001}h1{margin-top:0}label{display:block;margin:15px 0 6px;font-weight:700}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d0d5dd;border-radius:9px;font:inherit}button{width:100%;margin-top:20px;padding:12px;border:0;border-radius:9px;background:#3157d5;color:#fff;font-weight:700;font:inherit;cursor:pointer}button:disabled{opacity:.55}.muted{color:#667085}.err{color:#b42318}.ok{color:#176b3a}
+</style>
+</head>
+<body>
+<main class="wrap"><section class="card">
+<h1>ورود دانش‌آموز</h1>
+<p class="muted">نام کاربری و رمز عبوری را که مدرسه در اختیار شما گذاشته وارد کنید.</p>
+<form id="form">
+<label for="username">نام کاربری</label>
+<input id="username" autocomplete="username" required>
+<label for="password">رمز عبور</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button id="submit" type="submit">ورود به سامانه</button>
+<p id="message" class="muted" aria-live="polite"></p>
+</form>
+</section></main>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const form=document.getElementById('form'),button=document.getElementById('submit'),message=document.getElementById('message');
+if(MarefatStudentAuth.getSession()) location.replace('index.html');
+form.addEventListener('submit',async event=>{
+ event.preventDefault();button.disabled=true;message.className='muted';message.textContent='در حال بررسی اطلاعات...';
+ try{
+  await MarefatStudentAuth.login(document.getElementById('username').value,document.getElementById('password').value);
+  message.className='ok';message.textContent='ورود موفق بود.';
+  const target=MarefatStudentAuth.safeReturn(new URLSearchParams(location.search).get('return'));
+  location.replace(target);
+ }catch(error){message.className='err';message.textContent=error.message||'ورود انجام نشد.';button.disabled=false}
+});
+</script>
+</body>
+</html>
