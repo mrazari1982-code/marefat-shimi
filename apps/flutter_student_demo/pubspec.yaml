@@ -1,0 +1,21 @@
+name: marefat_student_demo
+description: Flutter student demo for Marefat Online Exam V5 staging.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: 2.17.2
+  flutter_secure_storage: 9.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true

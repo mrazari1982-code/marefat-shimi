@@ -1,0 +1,61 @@
+name: Flutter Student Demo
+
+on:
+  push:
+    branches: [feat/flutter-student-demo]
+    paths:
+      - 'apps/flutter_student_demo/**'
+      - '.github/workflows/flutter-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: https://yyqeymyopawhaniyemqo.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_7OCyIvEzWY8aQXqi3rAQww_ku-Q81tx
+      DEMO_EXAM_TOKEN: f17a0d6e9b249631a86d5a70c12909a209d19c808c51765cdfa9c6d8bea67942
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate platform scaffolding
+        working-directory: apps/flutter_student_demo
+        run: flutter create . --platforms=web,android --project-name marefat_student_demo
+      - name: Install dependencies
+        working-directory: apps/flutter_student_demo
+        run: flutter pub get
+      - name: Test
+        working-directory: apps/flutter_student_demo
+        run: flutter test
+      - name: Analyze
+        working-directory: apps/flutter_student_demo
+        run: flutter analyze
+      - name: Build web
+        working-directory: apps/flutter_student_demo
+        run: >-
+          flutter build web --release
+          --dart-define=SUPABASE_URL=$SUPABASE_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=DEMO_EXAM_TOKEN=$DEMO_EXAM_TOKEN
+      - name: Build APK
+        working-directory: apps/flutter_student_demo
+        run: >-
+          flutter build apk --release
+          --dart-define=SUPABASE_URL=$SUPABASE_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=DEMO_EXAM_TOKEN=$DEMO_EXAM_TOKEN
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-demo
+          path: apps/flutter_student_demo/build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apk-demo
+          path: apps/flutter_student_demo/build/app/outputs/flutter-apk/app-release.apk
