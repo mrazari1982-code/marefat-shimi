@@ -27,7 +27,9 @@ jobs:
           cache: true
       - name: Generate platform scaffolding
         working-directory: apps/flutter_student_demo
-        run: flutter create . --platforms=web,android --project-name marefat_student_demo
+        run: |
+          flutter create . --platforms=web,android --project-name marefat_student_demo
+          rm -f test/widget_test.dart
       - name: Install dependencies
         working-directory: apps/flutter_student_demo
         run: flutter pub get
