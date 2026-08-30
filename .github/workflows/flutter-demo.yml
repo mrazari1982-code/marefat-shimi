@@ -33,6 +33,12 @@ jobs:
       - name: Install dependencies
         working-directory: apps/flutter_student_demo
         run: flutter pub get
+      - name: Generate branded launcher icons
+        working-directory: apps/flutter_student_demo
+        run: |
+          dart run flutter_launcher_icons
+          test -f android/app/src/main/res/mipmap-xxxhdpi/launcher_icon.png
+          test -f web/icons/Icon-512.png
       - name: Test
         working-directory: apps/flutter_student_demo
         run: flutter test
