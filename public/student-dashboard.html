@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>داشبورد دانش‌آموز | معرفت</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="student-auth.js"></script>
+  <style>
+    :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:Tahoma,Arial,sans-serif;line-height:1.65}.skip{position:absolute;right:12px;top:-60px;background:#172033;color:#fff;padding:8px 12px;border-radius:8px;z-index:2}.skip:focus{top:12px}.wrap{max-width:1100px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.profile,.summary,.history,.trend{min-width:0;overflow-wrap:anywhere;word-break:break-word}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.toolbar h1{margin:0;flex:1}.btn,input{font:inherit;min-height:44px;border-radius:9px}.btn{border:0;padding:10px 15px;background:#3157d5;color:#fff;font-weight:700;cursor:pointer;text-decoration:none}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.secondary{background:#667085}.btn.danger{background:#b42318}.btn:focus-visible,input:focus-visible{outline:3px solid #3157d566;outline-offset:2px}input{width:min(100%,420px);border:1px solid #98a2b3;padding:10px;background:#fff}.muted{color:#667085}.ok{color:#176b3a}.err{color:#b42318}.status{min-height:1.7em}.list{display:grid;gap:10px}.attempt{border:1px solid #e4e7ec;border-radius:12px;padding:14px}.attempt h3{margin:0 0 5px}.attempt p{margin:4px 0}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.trend-list{margin:0;padding-right:22px}.trend-list li{padding:5px 0}@media(max-width:480px){.wrap{padding:10px}.card{padding:14px;margin:10px 0}.grid{grid-template-columns:1fr}.toolbar{align-items:stretch}.toolbar h1{flex-basis:100%}.toolbar .btn{flex:1}.btn,input{width:100%}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#dashboard-main">پرش به محتوای اصلی</a>
+  <main id="dashboard-main" class="wrap" tabindex="-1">
+    <section class="card" aria-labelledby="dashboard-title">
+      <div class="toolbar"><h1 id="dashboard-title">داشبورد دانش‌آموز</h1><button id="logout" class="btn danger" type="button">خروج</button></div>
+      <p id="dashboard-message" class="status muted" role="status" aria-live="polite">در حال دریافت اطلاعات…</p>
+      <button id="retry" class="btn secondary" type="button" hidden>تلاش دوباره</button>
+    </section>
+    <section class="card" aria-labelledby="start-title"><h2 id="start-title">شروع آزمون با لینک</h2><form id="token-form" class="toolbar"><label for="exam-token" class="muted">توکن آزمون</label><input id="exam-token" type="text" autocomplete="off" spellcheck="false" placeholder="توکن لینک آزمون"><button id="start-exam" class="btn" type="submit">شروع آزمون</button></form></section>
+    <div class="grid">
+      <section class="card profile" aria-labelledby="profile-title"><h2 id="profile-title">مشخصات من</h2><div id="profile"></div></section>
+      <section class="card summary" aria-labelledby="summary-title"><h2 id="summary-title">خلاصه عملکرد</h2><div id="summary"></div></section>
+    </div>
+    <section class="card history" aria-labelledby="history-title"><h2 id="history-title">سابقه آزمون‌ها</h2><div id="history" class="list"></div></section>
+    <section id="trend" class="card trend" aria-labelledby="trend-title" hidden><h2 id="trend-title">روند نتایج منتشرشده</h2></section>
+  </main>
+  <script src="student-dashboard.js"></script>
+</body>
+</html>

@@ -1,1 +1,49 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>نتیجه آزمون | سامانه آزمون معرفت</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="student-auth.js"></script><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:900px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.stat{font-size:25px;font-weight:800}.muted{color:#667085}.err{color:#b42318}.ok{color:#067647}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #eee;text-align:right}button{padding:10px 16px;border:0;border-radius:9px;background:#3157d5;color:#fff;font-weight:700;cursor:pointer}input{padding:10px;border:1px solid #ddd;border-radius:8px;width:min(100%,330px);box-sizing:border-box;margin:4px}</style></head><body><main class="wrap"><section class="card"><h1>نتیجه آزمون</h1><p class="muted">نتیجه فقط برای حساب دانش‌آموز واردشده و با شناسه نتیجه قابل دریافت است.</p><input id="id" placeholder="شناسه Attempt"><input id="code" type="hidden" value="session"><br><button id="load">نمایش نتیجه</button><p id="msg" class="muted"></p></section><section id="summary" class="card" hidden><div class="grid"><div><div class="stat" id="pct">—</div><div class="muted">درصد</div></div><div><div class="stat" id="correct">—</div><div class="muted">صحیح</div></div><div><div class="stat" id="wrong">—</div><div class="muted">غلط</div></div><div><div class="stat" id="blank">—</div><div class="muted">نزده</div></div></div><p id="student"></p><p id="exam"></p><p id="submitted" class="muted"></p></section><section id="detail" class="card" hidden><h2>جزئیات پاسخ‌ها</h2><table><thead><tr><th>سؤال</th><th>پاسخ</th><th>نتیجه</th><th>نمره</th></tr></thead><tbody id="rows"></tbody></table></section></main><script>const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));async function load(){const id=$('id').value.trim(),code=$('code').value.trim();if(!id||!code){$('msg').className='err';$('msg').textContent='هر دو مقدار لازم است.';return}$('load').disabled=true;try{const r=await sb.rpc('v5_get_student_result',{p_attempt_id:id,p_student_code:code});if(r.error)throw new Error(r.error.message||'نتیجه پیدا نشد.');const x=r.data;if(!x)throw new Error('نتیجه پیدا نشد.');$('pct').textContent=Number(x.percentage||0).toFixed(2)+'%';$('correct').textContent=x.correct_count??0;$('wrong').textContent=x.wrong_count??0;$('blank').textContent=x.blank_count??0;$('student').textContent='دانش‌آموز: '+esc(x.student_name)+' — '+esc(x.student_code);$('exam').textContent='آزمون: '+esc(x.exam_title)+' — '+esc(x.exam_code);$('submitted').textContent=x.submitted_at?'زمان ثبت: '+new Date(x.submitted_at).toLocaleString('fa-IR'):'';$('rows').innerHTML=(x.details||[]).map(q=>'<tr><td>'+esc(q.question_order)+'. '+esc(q.question_text)+'</td><td>'+esc(q.answer_text||'نزده')+'</td><td class="'+(q.is_correct?'ok':'err')+'">'+(q.is_correct?'صحیح':'غلط / نزده')+'</td><td>'+esc(q.score_awarded??0)+'</td></tr>').join('');$('summary').hidden=false;$('detail').hidden=false;$('msg').className='ok';$('msg').textContent='نتیجه با موفقیت نمایش داده شد.'}catch(e){$('summary').hidden=true;$('detail').hidden=true;$('msg').className='err';$('msg').textContent=e.message||'خطا در دریافت نتیجه.'}finally{$('load').disabled=false}}$('load').onclick=load;const p=new URLSearchParams(location.search);if(p.get('attempt'))$('id').value=p.get('attempt');</script></main></body></html>
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>نتیجه آزمون | سامانه آزمون معرفت</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="student-auth.js"></script>
+  <style>
+    body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:900px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.stat{font-size:25px;font-weight:800}.muted{color:#667085}.err{color:#b42318}.ok{color:#067647}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #eee;text-align:right}.btn{display:inline-block;padding:10px 16px;border:0;border-radius:9px;background:#667085;color:#fff;font-weight:700;text-decoration:none;min-height:44px;box-sizing:border-box}.toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.toolbar h1{margin:0}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="toolbar"><h1>نتیجه آزمون</h1><a id="dashboard-link" href="student-dashboard.html" class="btn">بازگشت به پنل دانش‌آموز</a></div>
+      <p id="msg" class="muted" role="status" aria-live="polite">در حال دریافت نتیجه…</p>
+    </section>
+    <section id="owner" class="card" hidden aria-label="مشخصات آزمون"></section>
+    <section id="summary" class="card" hidden>
+      <div class="grid">
+        <div><div class="stat" id="pct">—</div><div class="muted">درصد</div></div>
+        <div><div class="stat" id="correct">—</div><div class="muted">صحیح</div></div>
+        <div><div class="stat" id="wrong">—</div><div class="muted">غلط</div></div>
+        <div><div class="stat" id="blank">—</div><div class="muted">نزده</div></div>
+      </div>
+    </section>
+    <section id="detail" class="card" hidden>
+      <h2>جزئیات پاسخ‌ها</h2>
+      <table><thead><tr><th>سؤال</th><th>پاسخ</th><th>نتیجه</th><th>نمره</th></tr></thead><tbody id="rows"></tbody></table>
+    </section>
+  </main>
+  <script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const $=id=>document.getElementById(id);
+const attemptId=new URLSearchParams(location.search).get('attempt')||'';
+function statusLabel(status){return status==='submitted'?'ثبت‌شده':status==='started'?'در حال انجام':status==='expired'?'منقضی شده':status||'نامشخص'}
+function dateLabel(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.valueOf())?'—':date.toLocaleString('fa-IR')}
+function line(label,value){const row=document.createElement('p'),strong=document.createElement('strong');strong.textContent=label+': ';row.append(strong,document.createTextNode(value===null||value===undefined||value===''?'—':String(value)));return row}
+function hideResult(){$('owner').hidden=true;$('summary').hidden=true;$('detail').hidden=true;$('rows').replaceChildren()}
+function renderOwner(result){const owner=$('owner');owner.replaceChildren(line('آزمون',(result.exam_title||'آزمون')+(result.exam_code?' — '+result.exam_code:'')),line('دانش‌آموز',(result.student_name||'—')+(result.student_code?' — '+result.student_code:'')),line('وضعیت',statusLabel(result.status)),line('تاریخ ثبت',dateLabel(result.submitted_at)));owner.hidden=false}
+function renderSummary(result){$('pct').textContent=Number(result.percentage||0).toFixed(2)+'%';$('correct').textContent=result.correct_count??0;$('wrong').textContent=result.wrong_count??0;$('blank').textContent=result.blank_count??0;$('summary').hidden=false}
+function renderDetails(details){const rows=$('rows');rows.replaceChildren();for(const item of details){const row=document.createElement('tr'),question=document.createElement('td'),answer=document.createElement('td'),state=document.createElement('td'),score=document.createElement('td');question.textContent=String(item.question_order??'')+'. '+String(item.question_text??'');answer.textContent=String(item.answer_text||'نزده');state.textContent=item.is_correct?'صحیح':'غلط / نزده';state.className=item.is_correct?'ok':'err';score.textContent=String(item.score_awarded??0);row.append(question,answer,state,score);rows.append(row)}$('detail').hidden=false}
+async function load(){if(!attemptId){hideResult();$('msg').className='err';$('msg').textContent='شناسه نتیجه موجود نیست؛ از پنل دانش‌آموز وارد کارنامه شوید.';return}hideResult();$('msg').className='muted';$('msg').textContent='در حال دریافت نتیجه…';try{const response=await sb.rpc('v5_get_student_result',{p_attempt_id:attemptId});if(response.error)throw new Error(response.error.message||'نتیجه پیدا نشد.');const result=Array.isArray(response.data)?response.data[0]:response.data;if(!result)throw new Error('نتیجه پیدا نشد.');renderOwner(result);if(result.result_visible===true){renderSummary(result);$('msg').className='ok';$('msg').textContent='نتیجه منتشر شده است.'}else{$('summary').hidden=true;$('msg').className='muted';$('msg').textContent='در انتظار انتشار'}const details=Array.isArray(result.details)?result.details:[];if(result.detail_visible===true&&details.length)renderDetails(details);else{$('detail').hidden=true;$('rows').replaceChildren()}}catch(error){hideResult();$('msg').className='err';$('msg').textContent=error.message||'خطا در دریافت نتیجه.'}}
+function init(){return load()}
+init();
+  </script>
+</body>
+</html>

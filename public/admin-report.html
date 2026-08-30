@@ -1,1 +1,14 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-store"><title>گزارش کارنامه | سامانه آزمون معرفت</title><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:700px;margin:auto;padding:20px}.card{background:#fff;border-radius:16px;padding:22px;margin:30px 0;box-shadow:0 3px 16px #0001}.err{color:#b42318}.muted{color:#667085}</style></head><body><main class="wrap"><section class="card"><h1>گزارش کارنامه</h1><p id="msg" class="muted">در حال انتقال به نسخه جدید گزارش...</p></section></main><script>const params=new URLSearchParams(location.search),attempt=params.get('attempt')||params.get('attempt_id');if(attempt){location.replace('report.html?attempt_id='+encodeURIComponent(attempt))}else{document.getElementById('msg').className='err';document.getElementById('msg').textContent='شناسه کارنامه مشخص نشده است.'}</script></body></html>
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-store"><title>گزارش کارنامه | سامانه آزمون معرفت</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:700px;margin:auto;padding:20px}.card{background:#fff;border-radius:16px;padding:22px;margin:30px 0;box-shadow:0 3px 16px #0001}.err{color:#b42318}.muted{color:#667085}</style></head><body><main class="wrap"><section class="card"><h1>گزارش کارنامه</h1><p id="msg" class="muted">در حال بررسی دسترسی...</p><a href="admin-panel.html">پنل اصلی</a></section></main>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+(async()=>{
+ const {data:userData,error:userError}=await sb.auth.getUser();
+ if(userError||!userData.user){location.replace('admin-login-v2.html');return}
+ const {data:profile,error:profileError}=await sb.from('v5_profiles').select('role,is_active').eq('id',userData.user.id).maybeSingle();
+ if(profileError||!profile?.is_active||!['admin','deputy','teacher'].includes(profile.role)){await sb.auth.signOut();location.replace('admin-login-v2.html');return}
+ const params=new URLSearchParams(location.search),attempt=params.get('attempt')||params.get('attempt_id');
+ if(attempt){location.replace('report.html?attempt_id='+encodeURIComponent(attempt));return}
+ const msg=document.getElementById('msg');msg.className='err';msg.textContent='شناسه کارنامه مشخص نشده است.';
+})().catch(()=>location.replace('admin-login-v2.html'));
+</script></body></html>

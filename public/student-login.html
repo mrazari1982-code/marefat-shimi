@@ -26,7 +26,7 @@ body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin
 <script>
 const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
 const form=document.getElementById('form'),button=document.getElementById('submit'),message=document.getElementById('message');
-if(MarefatStudentAuth.getSession()) location.replace('index.html');
+if(MarefatStudentAuth.getSession()) location.replace('student-dashboard.html');
 form.addEventListener('submit',async event=>{
  event.preventDefault();button.disabled=true;message.className='muted';message.textContent='در حال بررسی اطلاعات...';
  try{

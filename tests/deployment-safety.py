@@ -22,14 +22,14 @@ class DeploymentSafety(unittest.TestCase):
                     relative = p.relative_to(asset_root).as_posix()
                     if p.parent == asset_root:
                         self.assertTrue(p.suffix == '.html' or p.name in {
-                            'auto-link.js', 'student-auth.js', 'student-import.js'
+                            'admin-nav.js', 'auto-link.js', 'student-auth.js', 'student-dashboard.js', 'student-import.js'
                         }, relative)
                     else:
                         self.assertIn(relative, {
                             'vendor/exceljs-4.4.0.min.js', 'vendor/EXCELJS-LICENSE.txt'
                         }, relative)
     def test_required_routes_exist(self):
-        for name in ('index.html', 'exam-access.html', 'exam.html', 'student-result.html',
+        for name in ('index.html', 'exam-access.html', 'exam.html', 'student-dashboard.html', 'student-result.html',
                      'student-login.html', 'admin-student-password.html',
                      'admin-student-import.html',
                      'admin-login-v2.html', 'admin-panel.html', 'admin-question-bank.html'):
