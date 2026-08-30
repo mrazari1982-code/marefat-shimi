@@ -1,1 +1,169 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سامانه آزمون آنلاین دبیرستان معرفت | V5</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="student-auth.js"></script><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:900px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 16px #0001}.btn{padding:12px 18px;border:0;border-radius:10px;background:#3157d5;color:#fff;font-weight:700;cursor:pointer;min-height:44px}.btn:disabled{opacity:.55;cursor:not-allowed}.err{color:#b42318}.ok{color:#176b3a}.muted{color:#667085}input[type=text]{padding:11px;border:1px solid #ddd;border-radius:8px;margin:6px 0;width:min(100%,360px);box-sizing:border-box}input:focus{outline:2px solid #3157d544;border-color:#3157d5}</style></head><body><main class="wrap"><section id="login" class="card"><h1>سامانه آزمون آنلاین دبیرستان معرفت</h1><p>نسخه V5 — ورود امن با حساب دانش‌آموز و لینک اختصاصی آزمون</p><p id="status" class="muted">در حال آماده‌سازی...</p><label for="token">توکن لینک آزمون</label><br><input id="token" type="text" autocomplete="off" spellcheck="false"><br><input id="studentCode" type="hidden" value="session"><button id="startBtn" class="btn">شروع آزمون</button></section></main><script>const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');const $=id=>document.getElementById(id);function setStatus(text,cls='muted'){$('status').className=cls;$('status').textContent=text}function friendlyError(message){const m=String(message||'');if(m.includes('STUDENT_NOT_FOUND'))return 'کد دانش‌آموزی پیدا نشد یا دانش‌آموز غیرفعال است.';if(m.includes('INVALID_EXAM_LINK'))return 'لینک آزمون معتبر نیست یا منقضی شده است.';if(m.includes('EXAM_NOT_PUBLISHED'))return 'این آزمون هنوز منتشر نشده است.';if(m.includes('EXAM_NOT_STARTED'))return 'زمان شروع آزمون هنوز فرا نرسیده است.';if(m.includes('EXAM_CLOSED'))return 'زمان این آزمون به پایان رسیده است.';if(m.includes('MAX_ATTEMPTS_REACHED'))return 'سقف مجاز شرکت در این آزمون تکمیل شده است.';return m||'خطای نامشخص در سامانه.'}function init(){try{const t=new URLSearchParams(location.search).get('token');if(t)$('token').value=t;setStatus('سامانه آماده است. توکن لینک آزمون را وارد کنید.','ok')}catch(e){setStatus('خطا در آماده‌سازی سامانه: '+e.message,'err')}}$('startBtn').onclick=async()=>{const token=$('token').value.trim(),code=$('studentCode').value.trim();if(!token||!code){setStatus('توکن و کد دانش‌آموزی الزامی است.','err');return}$('startBtn').disabled=true;setStatus('در حال بررسی لینک و حساب دانش‌آموز...');try{const linkResult=await sb.rpc('v5_validate_exam_link',{p_token:token});if(linkResult.error)throw linkResult.error;const link=Array.isArray(linkResult.data)?linkResult.data[0]:linkResult.data;if(!link){setStatus('لینک آزمون معتبر نیست یا منقضی شده است.','err');$('startBtn').disabled=false;return}const startResult=await sb.rpc('v5_start_exam',{p_token:token,p_student_code:code});if(startResult.error)throw startResult.error;const attempt=Array.isArray(startResult.data)?startResult.data[0]:startResult.data;if(!attempt){setStatus('شروع آزمون انجام نشد.','err');$('startBtn').disabled=false;return}location.href='exam.html?token='+encodeURIComponent(token)+'&student_code='+encodeURIComponent(code)}catch(e){setStatus(friendlyError(e.message),'err');$('startBtn').disabled=false}};init()</script></body></html>
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سامانه آزمون آنلاین دبیرستان معرفت</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="student-auth.js"></script>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;font-family:Tahoma,Arial,sans-serif;background:linear-gradient(180deg,#f4f7fb 0%,#eef2ff 100%);color:#172033}
+.skip{position:absolute;right:12px;top:-44px;background:#172033;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;z-index:10}
+.skip:focus{top:12px}
+.wrap{max-width:1120px;margin:0 auto;padding:20px}
+.hero,.choice{background:#fff;border-radius:24px;box-shadow:0 10px 34px #17203312}
+.hero{padding:28px;margin-top:18px}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef4ff;color:#3157d5;font-weight:700}
+h1{margin:18px 0 12px;font-size:clamp(30px,4vw,44px);line-height:1.35}
+.lead{max-width:64ch;font-size:18px;line-height:1.95;color:#344054}
+.status{margin:18px 0 0;color:#475467;min-height:1.8em}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:22px}
+.choice{padding:24px;border:1px solid #e6eaf2}
+.choice h2{margin:0 0 12px;font-size:24px}
+.choice p{margin:0 0 14px;line-height:1.9;color:#475467}
+.choice ul{margin:0 0 18px;padding:0 20px 0 0;color:#475467;line-height:1.9}
+.choice li+li{margin-top:6px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 18px;border-radius:14px;text-decoration:none;font-weight:700;border:0;cursor:pointer}
+.primary{background:#3157d5;color:#fff}
+.secondary{background:#eef2ff;color:#1d4ed8}
+.note{margin:0;color:#667085;min-height:1.8em}
+.footer{margin:18px 2px 0;color:#667085;line-height:1.9}
+@media (max-width:820px){
+  .wrap{padding:14px}
+  .hero,.choice{border-radius:20px}
+  .hero{padding:22px}
+  .choice{padding:20px}
+  .grid{grid-template-columns:1fr}
+  .lead{font-size:16px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#landing-main">پرش به محتوای اصلی</a>
+<main id="landing-main" class="wrap" tabindex="-1">
+  <section class="hero" aria-labelledby="landing-title">
+    <span class="badge">ورود امن و یکپارچه</span>
+    <h1 id="landing-title">به سامانه آزمون آنلاین دبیرستان معرفت خوش آمدید</h1>
+    <p class="lead">برای ادامه، مسیر مناسب خود را انتخاب کنید. دانش‌آموزان می‌توانند وارد داشبورد شوند و در صورت داشتن لینک آزمون، همان لینک بدون تغییر تا مرحله ورود و شروع آزمون همراه آن‌ها می‌ماند.</p>
+    <p id="page-status" class="status" role="status" aria-live="polite">در حال آماده‌سازی مسیرهای ورود…</p>
+  </section>
+
+  <section class="grid" aria-label="انتخاب نقش">
+    <article class="choice" aria-labelledby="student-title">
+      <h2 id="student-title">ورود دانش‌آموز</h2>
+      <p>برای دیدن داشبورد، ادامه آزمون‌های قبلی و شروع آزمون جدید از لینک اختصاصی مدرسه از این مسیر وارد شوید.</p>
+      <ul>
+        <li>بازگشت به داشبورد شخصی دانش‌آموز</li>
+        <li>پشتیبانی از لینک آزمون با حفظ امن توکن</li>
+        <li>نمایش کارنامه‌ها و سابقه آزمون‌های منتشرشده</li>
+      </ul>
+      <div class="actions">
+        <a id="student-entry" class="btn primary" href="student-login.html?return=student-dashboard.html">ورود دانش‌آموز</a>
+        <a id="student-dashboard-link" class="btn secondary" href="student-login.html?return=student-dashboard.html">داشبورد دانش‌آموز</a>
+      </div>
+      <p id="student-note" class="note" role="status" aria-live="polite"></p>
+    </article>
+
+    <article class="choice" aria-labelledby="staff-title">
+      <h2 id="staff-title">ورود مدیر / معاون</h2>
+      <p>برای مدیریت آزمون‌ها، بانک سؤال، گزارش‌ها و پنل اجرایی مدرسه از مسیر مدیریت استفاده کنید.</p>
+      <ul>
+        <li>ورود به پنل رسمی مدیریت مدرسه</li>
+        <li>حفظ مسیر واحد برای مدیر و معاون</li>
+        <li>بررسی دسترسی فقط پس از کنترل نشست مدیریت</li>
+      </ul>
+      <div class="actions">
+        <a id="staff-entry" class="btn primary" href="admin-login-v2.html">ورود مدیر / معاون</a>
+        <a class="btn secondary" href="admin-panel.html">پنل مدیر</a>
+      </div>
+      <p id="staff-note" class="note" role="status" aria-live="polite"></p>
+    </article>
+  </section>
+
+  <p class="footer">اگر قبلاً وارد شده باشید، دکمه هر بخش شما را به مسیر استاندارد همان نقش هدایت می‌کند. در صورت دریافت لینک آزمون از مدرسه، همان لینک را از همین صفحه باز کنید تا توکن آزمون محفوظ بماند.</p>
+</main>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const LANDING_PATHS={studentLogin:'student-login.html',studentDashboard:'student-dashboard.html',staffLogin:'admin-login-v2.html',adminPanel:'admin-panel.html'};
+const MAX_TOKEN_LENGTH=512;
+const $=id=>document.getElementById(id);
+
+function normalizeToken(value){
+  const token=String(value??'').trim();
+  return token&&token.length<=MAX_TOKEN_LENGTH?token:'';
+}
+
+function landingDestination(state={}){
+  if(state.staffSession===true)return LANDING_PATHS.adminPanel;
+  if(state.studentSession===true)return LANDING_PATHS.studentDashboard;
+  return LANDING_PATHS.studentLogin;
+}
+
+function studentDashboardDestination(rawToken){
+  const token=normalizeToken(rawToken);
+  return token?LANDING_PATHS.studentDashboard+'?token='+encodeURIComponent(token):LANDING_PATHS.studentDashboard;
+}
+
+function studentTokenDestination(rawToken,hasStudentSession){
+  const dashboardTarget=studentDashboardDestination(rawToken);
+  return hasStudentSession===true?dashboardTarget:LANDING_PATHS.studentLogin+'?return='+encodeURIComponent(dashboardTarget);
+}
+
+function setStatus(text){$('page-status').textContent=text}
+
+function applyStudentEntry(rawToken){
+  const token=normalizeToken(rawToken);
+  const hasStudentSession=!!(window.MarefatStudentAuth&&typeof MarefatStudentAuth.getSession==='function'&&MarefatStudentAuth.getSession());
+  const href=studentTokenDestination(token,hasStudentSession);
+  $('student-entry').href=href;
+  $('student-dashboard-link').href=href;
+  $('student-entry').textContent=hasStudentSession?'ادامه به داشبورد دانش‌آموز':'ورود دانش‌آموز';
+  if(token&&hasStudentSession){
+    $('student-note').textContent='نشست دانش‌آموزی فعال است؛ توکن آزمون شما مستقیم به داشبورد منتقل می‌شود.';
+  }else if(token){
+    $('student-note').textContent='توکن آزمون شما پس از ورود دانش‌آموز به‌صورت امن حفظ می‌شود.';
+  }else if(hasStudentSession){
+    $('student-note').textContent='نشست دانش‌آموزی فعال است و می‌توانید مستقیم وارد داشبورد شوید.';
+  }else{
+    $('student-note').textContent='برای ورود، از نام کاربری و رمز عبور دانش‌آموزی استفاده کنید.';
+  }
+  return {hasStudentSession,token};
+}
+
+async function applyStaffEntry(){
+  $('staff-entry').href=LANDING_PATHS.staffLogin;
+  $('staff-entry').textContent='ورود مدیر / معاون';
+  $('staff-note').textContent='برای مدیریت آزمون‌ها از مسیر رسمی ورود مدیریت استفاده کنید.';
+  const sessionResult=await sb.auth.getSession();
+  if(!sessionResult?.data?.session)return false;
+  const staffResult=await sb.rpc('v5_is_staff');
+  if(staffResult?.error||staffResult?.data!==true)return false;
+  $('staff-entry').href=landingDestination({staffSession:true});
+  $('staff-entry').textContent='ادامه به پنل مدیر';
+  $('staff-note').textContent='نشست مدیریت فعال است و مسیر استاندارد پنل در دسترس شماست.';
+  return true;
+}
+
+async function init(){
+  const rawToken=new URLSearchParams(location.search||'').get('token');
+  const {hasStudentSession,token}=applyStudentEntry(rawToken);
+  if(token){
+    setStatus(hasStudentSession?'داشبورد دانش‌آموز با توکن آزمون آماده ادامه است.':'پس از ورود دانش‌آموز، همان توکن آزمون بدون تغییر در مسیر امن شما حفظ می‌شود.');
+  }else if(rawToken){
+    setStatus('توکن آزمون نامعتبر بود و نادیده گرفته شد. برای ادامه از مسیرهای استاندارد استفاده کنید.');
+  }else{
+    setStatus('نقش خود را انتخاب کنید تا به مسیر مناسب هدایت شوید.');
+  }
+  try{await applyStaffEntry();}catch(_){}
+}
+
+window.landingDestination=landingDestination;
+window.studentTokenDestination=studentTokenDestination;
+window.init=init;
+init();
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@ body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin
 </style>
 </head>
 <body><main class="wrap">
-<div class="card"><div class="toolbar"><div style="flex:1"><h1 style="margin:0">کارنامه دانش‌آموز</h1><p id="userInfo" class="muted"></p></div><a class="btn secondary" href="results.html">بازگشت به نتایج</a><button id="logoutBtn" class="btn secondary">خروج</button></div></div>
+<div class="card"><div class="toolbar"><div style="flex:1"><h1 style="margin:0">کارنامه دانش‌آموز</h1><p id="userInfo" class="muted"></p></div><a class="btn secondary" href="admin-panel.html">پنل اصلی</a><a class="btn secondary" href="results.html">بازگشت به نتایج</a><button id="logoutBtn" class="btn secondary">خروج</button></div></div>
 <div id="msg" class="card muted">در حال دریافت کارنامه...</div>
 <section id="report" class="hidden">
 <div class="card"><h2 id="examTitle"></h2><p id="studentInfo" class="muted"></p><div class="summary"><div class="stat">صحیح<b id="correct">0</b></div><div class="stat">غلط<b id="wrong">0</b></div><div class="stat">نزده<b id="blank">0</b></div><div class="stat">درصد<b id="percentage">0%</b></div><div class="stat">نمره<b id="score">0</b></div></div></div>
@@ -21,9 +21,9 @@ const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function fmt(d){return d?new Date(d).toLocaleString('fa-IR'):'—'}
 function showError(e){$('msg').className='card err';$('msg').textContent='دریافت کارنامه انجام نشد: '+e.message}
-async function verifyAdmin(){const {data:userData}=await sb.auth.getUser();if(!userData.user)throw new Error('ابتدا وارد حساب مدیر شوید.');const {data:profile,error}=await sb.from('v5_profiles').select('full_name,role,is_active').eq('id',userData.user.id).maybeSingle();if(error)throw error;if(!profile||!profile.is_active||!['admin','deputy','teacher'].includes(profile.role))throw new Error('دسترسی مشاهده کارنامه برای این حساب مجاز نیست.');$('userInfo').textContent='کاربر: '+(profile.full_name||userData.user.email)+' | نقش: '+profile.role}
+async function verifyAdmin(){const {data:userData}=await sb.auth.getUser();if(!userData.user){location.href='admin-login-v2.html';return false}const {data:profile,error}=await sb.from('v5_profiles').select('full_name,role,is_active').eq('id',userData.user.id).maybeSingle();if(error)throw error;if(!profile||!profile.is_active||!['admin','deputy','teacher'].includes(profile.role)){await sb.auth.signOut();location.href='admin-login-v2.html';return false}$('userInfo').textContent='کاربر: '+(profile.full_name||userData.user.email)+' | نقش: '+profile.role;return true}
 async function loadReport(){
- await verifyAdmin();
+ if(!await verifyAdmin())return;
  const attemptId=new URLSearchParams(location.search).get('attempt_id');if(!attemptId)throw new Error('شناسه کارنامه ارسال نشده است.');
  const {data:attempt,error:ae}=await sb.from('v5_attempts').select('id,exam_id,student_id,status,correct_count,wrong_count,blank_count,total_score,percentage,started_at,submitted_at').eq('id',attemptId).maybeSingle();if(ae)throw ae;if(!attempt)throw new Error('کارنامه پیدا نشد.');if(attempt.status!=='submitted')throw new Error('فقط کارنامه آزمون‌های ثبت نهایی‌شده قابل مشاهده است.');
  const [{data:exam,error:ee},{data:student,error:se},{data:eqs,error:eqe},{data:answers,error:sae}]=await Promise.all([
@@ -41,5 +41,5 @@ async function loadReport(){
  $('msg').classList.add('hidden');$('report').classList.remove('hidden');
 }
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.href='results.html'};
-sb.auth.getSession().then(({data})=>{if(!data.session){showError(new Error('ابتدا وارد حساب مدیر شوید.'))}else{loadReport().catch(showError)}});
+sb.auth.getSession().then(({data})=>{if(!data.session){location.href='admin-login-v2.html'}else{loadReport().catch(showError)}});
 </script></main></body></html>

@@ -3,8 +3,11 @@
 
   const STORAGE_KEY = 'marefat.student.session.v1';
   const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
-  const protectedPages = new Set(['', 'index.html', 'exam.html', 'student-result.html']);
+  const protectedPages = new Set(['student-dashboard.html', 'exam.html', 'student-result.html']);
+  const SAFE_PARAM_LENGTH = 512;
   const rpcMap = {
+    v5_dashboard: ['v5_student_dashboard', (args, token) => ({p_limit: Math.min(100, Math.max(0, Number(args.p_limit ?? 100))), p_session_token: token})],
+    v5_resume_attempt: ['v5_student_resume_attempt', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_start_exam: ['v5_student_start_exam', (args, token) => ({p_exam_token: args.p_token, p_session_token: token})],
     v5_get_attempt_state: ['v5_student_get_attempt_state', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_get_exam_questions: ['v5_student_get_exam_questions', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
@@ -44,7 +47,8 @@
     const session = getSession();
     if (!session && currentPage() !== 'student-login.html') {
       const page = currentPage() || 'index.html';
-      global.location.replace('student-login.html?return=' + encodeURIComponent(page + (global.location.search || '')));
+      const target = safeReturn(page + (global.location.search || ''));
+      global.location.replace('student-login.html?return=' + encodeURIComponent(target));
     }
     return session;
   }
@@ -79,9 +83,67 @@
     }
   }
 
+  function hasUnsafeEncodedSeparator(value) {
+    return /%(?:23|26|2f|3d|3f|5c)/i.test(String(value || ''));
+  }
+
+  function normalizeSafeParamValue(value) {
+    const raw = String(value || '');
+    if (!raw || raw.length > SAFE_PARAM_LENGTH || /[#&?=\/\\]/.test(raw) || hasUnsafeEncodedSeparator(raw)) return null;
+    try {
+      const decoded = decodeURIComponent(raw);
+      if (!decoded || decoded.length > SAFE_PARAM_LENGTH || /[%#&?=\/\\]/.test(decoded)) return null;
+      return encodeURIComponent(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function parseQuery(query) {
+    return String(query || '').split('&').filter(Boolean).map(part => {
+      const index = part.indexOf('=');
+      return {
+        key: (index === -1 ? part : part.slice(0, index)).toLowerCase(),
+        value: index === -1 ? '' : part.slice(index + 1)
+      };
+    });
+  }
+
+  function canonicalTarget(page, query) {
+    const params = parseQuery(query);
+    if (page === 'student-dashboard.html') {
+      const tokenEntry = params.find(entry => entry.key === 'token');
+      const token = normalizeSafeParamValue(tokenEntry && tokenEntry.value);
+      return token ? page + '?token=' + token : page;
+    }
+    if (page === 'exam.html') {
+      const attemptEntry = params.find(entry => entry.key === 'attempt');
+      const tokenEntry = params.find(entry => entry.key === 'token');
+      const attempt = normalizeSafeParamValue(attemptEntry && attemptEntry.value);
+      if (attempt) return page + '?attempt=' + attempt;
+      const token = normalizeSafeParamValue(tokenEntry && tokenEntry.value);
+      return token ? page + '?token=' + token : 'student-dashboard.html';
+    }
+    if (page === 'student-result.html') {
+      const attemptEntry = params.find(entry => entry.key === 'attempt');
+      const attempt = normalizeSafeParamValue(attemptEntry && attemptEntry.value);
+      return attempt ? page + '?attempt=' + attempt : 'student-dashboard.html';
+    }
+    return 'student-dashboard.html';
+  }
+
   function safeReturn(value) {
-    const candidate = String(value || '');
-    return /^(index|exam|student-result)\.html(?:\?[^#]*)?$/.test(candidate) ? candidate : 'index.html';
+    const candidate = String(value || '').trim();
+    if (!candidate || candidate.includes('#') || candidate.startsWith('http://') || candidate.startsWith('https://') || candidate.startsWith('//')) {
+      return 'student-dashboard.html';
+    }
+    const queryIndex = candidate.indexOf('?');
+    const rawPage = queryIndex === -1 ? candidate : candidate.slice(0, queryIndex);
+    const query = queryIndex === -1 ? '' : candidate.slice(queryIndex + 1);
+    if (!rawPage || /[#\/\\]/.test(rawPage) || /%2f|%5c|%23/i.test(rawPage)) return 'student-dashboard.html';
+    const page = rawPage.toLowerCase();
+    if (!protectedPages.has(page)) return 'student-dashboard.html';
+    return queryIndex === -1 ? page : canonicalTarget(page, query);
   }
 
   if (global.supabase && typeof global.supabase.createClient === 'function') {
