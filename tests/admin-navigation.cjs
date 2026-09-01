@@ -21,10 +21,12 @@ const requiredPanelRoutes = [
   'results.html',
   'admin-report.html',
   'admin-analytics.html',
+  'admin-descriptive-grading.html',
 ];
 
 const activeStaffPages = [
   'admin-analytics.html',
+  'admin-descriptive-grading.html',
   'admin-exam-builder.html',
   'admin-exam-lifecycle.html',
   'admin-exam-links.html',
@@ -43,9 +45,10 @@ const activeStaffPages = [
 
 test('canonical panel reaches every current staff capability in grouped menus', () => {
   const panel = readPublic('admin-panel.html');
+  const panelNavigation = panel + readPublic('admin-nav.js');
   const missing = requiredPanelRoutes.filter((route) => {
     const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return !new RegExp(`href=["']${escaped}["']`).test(panel);
+    return !new RegExp(`(?:href=["']|["'])${escaped}["']`).test(panelNavigation);
   });
   assert.deepEqual(missing, [], `missing canonical panel routes: ${missing.join(', ')}`);
 
@@ -85,7 +88,13 @@ test('every active staff page has a canonical back route and no admin.html route
 test('active pages with their own authorization route denied sessions to staff login', () => {
   const authorizationPages = activeStaffPages.filter((page) => page !== 'admin-report.html');
   const missingLoginRoute = authorizationPages.filter(
-    (page) => !/admin-login-v2\.html/.test(readPublic(page)),
+    (page) => {
+      const html = readPublic(page);
+      const scripts = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+\.js)["'][^>]*>/gi)]
+        .map((match) => fs.existsSync(path.join(PUBLIC, match[1])) ? readPublic(match[1]) : '')
+        .join('\n');
+      return !/admin-login-v2\.html/.test(html + scripts);
+    },
   );
   assert.deepEqual(
     missingLoginRoute,

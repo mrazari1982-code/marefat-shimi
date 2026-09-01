@@ -24,7 +24,8 @@ class DeploymentSafety(unittest.TestCase):
                         self.assertTrue(p.suffix == '.html' or p.name in {
                             'admin-nav.js', 'auto-link.js', 'student-auth.js', 'student-dashboard.js', 'student-import.js',
                             'admin-school-structure.js', 'admin-curriculum-question-bank.js',
-                            'admin-curriculum-exam-builder.js', 'curriculum-ui.js', 'admin-curriculum.css'
+                            'admin-curriculum-exam-builder.js', 'admin-descriptive-grading.js',
+                            'curriculum-ui.js', 'admin-curriculum.css'
                         }, relative)
                     else:
                         self.assertIn(relative, {
@@ -35,7 +36,8 @@ class DeploymentSafety(unittest.TestCase):
         for name in ('index.html', 'exam-access.html', 'exam.html', 'student-dashboard.html', 'student-result.html',
                      'student-login.html', 'admin-student-password.html',
                      'admin-student-import.html',
-                     'admin-login-v2.html', 'admin-panel.html', 'admin-question-bank.html'):
+                     'admin-login-v2.html', 'admin-panel.html', 'admin-question-bank.html',
+                     'admin-descriptive-grading.html'):
             self.assertTrue((ROOT / 'public' / name).is_file(), name)
 
     def test_student_management_links_to_bulk_import(self):

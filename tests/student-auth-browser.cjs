@@ -17,10 +17,12 @@ function harness(initial=null,rawLocation='/index.html'){
  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_start_exam',{p_exam_token:'exam',p_session_token:'a'.repeat(64)}]);assert.deepEqual(result,{data:{ok:true}});
  await h.client.rpc('v5_save_answer',{p_attempt_id:'attempt',p_exam_question_id:12,p_selected_option_id:34,p_student_code:'ignored'});
  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_save_answer',{p_attempt_id:'attempt',p_exam_question_id:12,p_selected_option_id:34,p_session_token:'a'.repeat(64)}]);
+ await h.client.rpc('v5_save_descriptive_answer',{p_attempt_id:'attempt',p_exam_question_id:13,p_answer_text:' پاسخ تشریحی '});
+ assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_save_descriptive_answer',{p_attempt_id:'attempt',p_exam_question_id:13,p_answer_text:' پاسخ تشریحی ',p_session_token:'a'.repeat(64)}]);
  await h.client.rpc('v5_get_student_result',{p_attempt_id:'attempt',p_student_code:'another-student'});
- assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_get_result',{p_attempt_id:'attempt',p_session_token:'a'.repeat(64)}]);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_get_result_v2',{p_attempt_id:'attempt',p_session_token:'a'.repeat(64)}]);
  await h.client.rpc('v5_dashboard',{p_limit:25});
- assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_dashboard',{p_limit:25,p_session_token:'a'.repeat(64)}]);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_dashboard_v2',{p_limit:25,p_session_token:'a'.repeat(64)}]);
  await h.client.rpc('v5_resume_attempt',{p_attempt_id:'attempt-a'});
  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1))),['v5_student_resume_attempt',{p_attempt_id:'attempt-a',p_session_token:'a'.repeat(64)}]);
  const bad=harness('{not json');bad.api.requireSession();assert.match(bad.redirect,/student-login\.html/);

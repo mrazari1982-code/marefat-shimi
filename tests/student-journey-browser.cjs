@@ -215,6 +215,15 @@ test('visible result before close hides details', async () => {
   assert.equal(h.detailHidden(), true);
 });
 
+test('pending manual result hides summary and explains grading state', async () => {
+  const h = harnessResult(resultFixture({grading_status: 'pending_manual', pending_manual_count: 1, result_visible: false, detail_visible: false, percentage: null, correct_count: null, wrong_count: null, blank_count: null, details: null}));
+  await h.load();
+  assert.equal(h.summaryHidden(), true);
+  assert.equal(h.detailHidden(), true);
+  assert.match(h.messageText(), /در انتظار تصحیح/);
+  assert.doesNotMatch(h.summaryText(), /0\.00|62\.50/);
+});
+
 test('hidden result shows owner metadata and waiting state only', async () => {
   const h = harnessResult(resultFixture({result_visible: false, detail_visible: false, percentage: null, correct_count: null, wrong_count: null, blank_count: null, details: null}));
   await h.load();
