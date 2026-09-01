@@ -246,6 +246,18 @@ test('closed result shows non-empty allowed details with safe text rendering', a
   assert.match(h.rowsText(), /چهار/);
 });
 
+test('partial-credit descriptive result is not labelled wrong or unanswered', async () => {
+  const h = harnessResult(resultFixture({
+    result_visible: true,
+    detail_visible: true,
+    grading_status: 'graded',
+    details: [{question_order: 1, question_text: 'پاسخ تشریحی', answer_text: 'پاسخ', is_correct: null, score_awarded: 1, max_score: 2}]
+  }));
+  await h.load();
+  assert.match(h.rowsText(), /نمره جزئی/);
+  assert.doesNotMatch(h.rowsText(), /غلط \/ نزده/);
+});
+
 test('truthy non-boolean result visibility does not reveal summary', async () => {
   const h = harnessResult(resultFixture({result_visible: 'true', detail_visible: false}));
   await h.load();

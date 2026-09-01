@@ -4,9 +4,14 @@ const path = require('node:path');
 const test = require('node:test');
 
 const migrationPath = path.join(__dirname, '../supabase/migrations/20260831210000_descriptive_answer_grading.sql');
+const hardeningPath = path.join(__dirname, '../supabase/migrations/20260901173934_harden_descriptive_submission.sql');
 
 function migration() {
   return fs.readFileSync(migrationPath, 'utf8').toLowerCase();
+}
+
+function hardeningMigration() {
+  return fs.readFileSync(hardeningPath, 'utf8').toLowerCase();
 }
 
 test('student question contract preserves descriptive rows without exposing grading secrets', () => {
@@ -54,6 +59,23 @@ test('submission marks answered descriptive questions pending and withholds perc
   assert.match(submit, /pending_manual/);
   assert.match(submit, /answer_text/);
   assert.match(submit, /percentage',case when v_pending_manual_count>0 then null/);
+});
+
+test('hardened submission rejects non-started and expired attempts', () => {
+  const sql = hardeningMigration();
+  assert.match(sql, /v_attempt\.status\s*<>\s*'started'/);
+  assert.match(sql, /attempt_not_started/);
+  assert.match(sql, /v_deadline\s+is\s+not\s+null/);
+  assert.match(sql, /clock_timestamp\(\)\s*>\s*v_deadline/);
+  assert.match(sql, /attempt_expired/);
+});
+
+test('pending manual submission response withholds all provisional result fields', () => {
+  const sql = hardeningMigration();
+  assert.match(sql, /'result_visible'\s*,\s*case\s+when\s+v_pending_manual_count\s*>\s*0\s+then\s+false/);
+  for (const field of ['correct_answers', 'wrong_answers', 'unanswered_questions', 'total_score', 'max_score']) {
+    assert.match(sql, new RegExp(`'${field}'\\s*,\\s*case\\s+when\\s+v_pending_manual_count\\s*>\\s*0\\s+then\\s+null`));
+  }
 });
 
 test('staff grading contract enforces role, score bounds, audit, and recalculation', () => {
