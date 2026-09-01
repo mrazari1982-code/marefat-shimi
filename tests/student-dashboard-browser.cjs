@@ -64,8 +64,15 @@ test('hidden attempt never renders score text', async () => {
   const h = harness({profile: {}, summary: {}, attempts: [{attempt_id: 'a', exam_title: 'آزمون پنهان', status: 'submitted', result_visible: false, percentage: null, correct_count: null, wrong_count: null, blank_count: null, can_resume: false}]});
   await h.init();
   assert.match(h.text('history'), /در انتظار انتشار/);
-  assert.doesNotMatch(h.text('history'), /%|صحیح|غلط/);
+  assert.doesNotMatch(h.text('history'), /%|صحیح:|غلط:/);
   assert.equal(h.ctx.document.querySelector('[data-result="a"]'), null);
+});
+test('pending manual attempt explains grading and never renders result action', async () => {
+  const h = harness({profile: {}, summary: {}, attempts: [{attempt_id: 'pending', exam_title: 'آزمون تشریحی', status: 'submitted', grading_status: 'pending_manual', result_visible: false, percentage: null, can_resume: false}]});
+  await h.init();
+  assert.match(h.text('history'), /در انتظار تصحیح/);
+  assert.doesNotMatch(h.text('history'), /%|صحیح:|غلط:/);
+  assert.equal(h.ctx.document.querySelector('[data-result="pending"]'), null);
 });
 test('resume and result actions use attempt id only', async () => {
   const h = harness(ownedPayload()); await h.init(); h.click('[data-resume="attempt-a"]'); await new Promise(setImmediate);

@@ -92,7 +92,7 @@
         appendLine(card, 'صحیح', number(attempt.correct_count));
         appendLine(card, 'غلط', number(attempt.wrong_count));
         appendLine(card, 'بی‌پاسخ', number(attempt.blank_count));
-      } else if (attempt.status === 'submitted') card.append(element('p', 'در انتظار انتشار نتیجه'));
+      } else if (attempt.status === 'submitted') card.append(element('p', attempt.grading_status === 'pending_manual' ? 'پاسخ تشریحی در انتظار تصحیح دبیر است' : 'در انتظار انتشار نتیجه'));
       const actions = element('div'); actions.className = 'actions';
       if (attempt.can_resume) { const resume = element('button', 'ادامه آزمون'); resume.type = 'button'; resume.className = 'btn'; resume.dataset.resume = String(attempt.attempt_id); resume.addEventListener('click', () => resumeAttempt(attempt).catch(handleError)); actions.append(resume); }
       if (attempt.status === 'submitted' && attempt.result_visible === true) { const result = element('button', 'مشاهده نتیجه'); result.type = 'button'; result.className = 'btn secondary'; result.dataset.result = String(attempt.attempt_id); result.addEventListener('click', () => navigate('student-result.html?attempt=' + encodeURIComponent(attempt.attempt_id))); actions.append(result); }

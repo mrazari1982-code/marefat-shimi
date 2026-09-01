@@ -215,6 +215,15 @@ test('visible result before close hides details', async () => {
   assert.equal(h.detailHidden(), true);
 });
 
+test('pending manual result hides summary and explains grading state', async () => {
+  const h = harnessResult(resultFixture({grading_status: 'pending_manual', pending_manual_count: 1, result_visible: false, detail_visible: false, percentage: null, correct_count: null, wrong_count: null, blank_count: null, details: null}));
+  await h.load();
+  assert.equal(h.summaryHidden(), true);
+  assert.equal(h.detailHidden(), true);
+  assert.match(h.messageText(), /در انتظار تصحیح/);
+  assert.doesNotMatch(h.summaryText(), /0\.00|62\.50/);
+});
+
 test('hidden result shows owner metadata and waiting state only', async () => {
   const h = harnessResult(resultFixture({result_visible: false, detail_visible: false, percentage: null, correct_count: null, wrong_count: null, blank_count: null, details: null}));
   await h.load();
@@ -235,6 +244,18 @@ test('closed result shows non-empty allowed details with safe text rendering', a
   assert.equal(h.detailHidden(), false);
   assert.match(h.rowsText(), /<img src=x onerror=alert\(1\)>/);
   assert.match(h.rowsText(), /چهار/);
+});
+
+test('partial-credit descriptive result is not labelled wrong or unanswered', async () => {
+  const h = harnessResult(resultFixture({
+    result_visible: true,
+    detail_visible: true,
+    grading_status: 'graded',
+    details: [{question_order: 1, question_text: 'پاسخ تشریحی', answer_text: 'پاسخ', is_correct: null, score_awarded: 1, max_score: 2}]
+  }));
+  await h.load();
+  assert.match(h.rowsText(), /نمره جزئی/);
+  assert.doesNotMatch(h.rowsText(), /غلط \/ نزده/);
 });
 
 test('truthy non-boolean result visibility does not reveal summary', async () => {

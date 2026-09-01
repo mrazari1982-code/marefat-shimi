@@ -6,16 +6,17 @@
   const protectedPages = new Set(['student-dashboard.html', 'exam.html', 'student-result.html']);
   const SAFE_PARAM_LENGTH = 512;
   const rpcMap = {
-    v5_dashboard: ['v5_student_dashboard', (args, token) => ({p_limit: Math.min(100, Math.max(0, Number(args.p_limit ?? 100))), p_session_token: token})],
+    v5_dashboard: ['v5_student_dashboard_v2', (args, token) => ({p_limit: Math.min(100, Math.max(0, Number(args.p_limit ?? 100))), p_session_token: token})],
     v5_resume_attempt: ['v5_student_resume_attempt', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_start_exam: ['v5_student_start_exam', (args, token) => ({p_exam_token: args.p_token, p_session_token: token})],
     v5_get_attempt_state: ['v5_student_get_attempt_state', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_get_exam_questions: ['v5_student_get_exam_questions', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_get_saved_answers: ['v5_student_get_saved_answers', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
     v5_save_answer: ['v5_student_save_answer', (args, token) => ({p_attempt_id: args.p_attempt_id, p_exam_question_id: args.p_exam_question_id, p_selected_option_id: args.p_selected_option_id, p_session_token: token})],
+    v5_save_descriptive_answer: ['v5_student_save_descriptive_answer', (args, token) => ({p_attempt_id: args.p_attempt_id, p_exam_question_id: args.p_exam_question_id, p_answer_text: args.p_answer_text, p_session_token: token})],
     v5_save_answers: ['v5_student_save_answers', (args, token) => ({p_attempt_id: args.p_attempt_id, p_answers: args.p_answers, p_session_token: token})],
     v5_submit_attempt: ['v5_student_submit_attempt', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})],
-    v5_get_student_result: ['v5_student_get_result', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})]
+    v5_get_student_result: ['v5_student_get_result_v2', (args, token) => ({p_attempt_id: args.p_attempt_id, p_session_token: token})]
   };
   let lastRawRpc = null;
 

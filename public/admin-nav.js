@@ -20,7 +20,8 @@
       [
         ['admin-school-structure.html', 'سال و کلاس‌ها'],
         ['admin-curriculum-question-bank.html', 'بانک سؤال جدید'],
-        ['admin-curriculum-exam-builder.html', 'آزمون‌ساز جدید']
+        ['admin-curriculum-exam-builder.html', 'آزمون‌ساز جدید'],
+        ['admin-descriptive-grading.html', 'تصحیح پاسخ‌های تشریحی']
       ].forEach(function (item) {
         var link = document.createElement('a');
         link.href = item[0];
