@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const migrationPath = path.join(__dirname, '../supabase/migrations/20260831210000_descriptive_answer_grading.sql');
 const hardeningPath = path.join(__dirname, '../supabase/migrations/20260901173934_harden_descriptive_submission.sql');
+const objectiveConsistencyPath = path.join(__dirname, '../supabase/migrations/20260901190000_fix_objective_grading_consistency.sql');
 
 function migration() {
   return fs.readFileSync(migrationPath, 'utf8').toLowerCase();
@@ -12,6 +13,10 @@ function migration() {
 
 function hardeningMigration() {
   return fs.readFileSync(hardeningPath, 'utf8').toLowerCase();
+}
+
+function objectiveConsistencyMigration() {
+  return fs.readFileSync(objectiveConsistencyPath, 'utf8').toLowerCase();
 }
 
 test('student question contract preserves descriptive rows without exposing grading secrets', () => {
@@ -76,6 +81,27 @@ test('pending manual submission response withholds all provisional result fields
   for (const field of ['correct_answers', 'wrong_answers', 'unanswered_questions', 'total_score', 'max_score']) {
     assert.match(sql, new RegExp(`'${field}'\\s*,\\s*case\\s+when\\s+v_pending_manual_count\\s*>\\s*0\\s+then\\s+null`));
   }
+});
+
+test('submission persists objective correctness and awarded score before aggregating', () => {
+  const sql = objectiveConsistencyMigration();
+  const submit = sql.match(/create or replace function public\.v5_student_submit_attempt[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(submit, /update public\.v5_student_answers sa set/);
+  assert.match(submit, /qo\.question_id=eq\.question_id/);
+  assert.match(submit, /is_correct=exists/);
+  assert.match(submit, /score_awarded=case when exists/);
+  assert.match(submit, /count\(\*\) filter \(where q\.question_type<>'descriptive'.*sa\.is_correct is true\)/);
+  assert.match(submit, /coalesce\(sum\(sa\.score_awarded\),0\)/);
+});
+
+test('manual grading repairs objective counters while preserving least privilege', () => {
+  const sql = objectiveConsistencyMigration();
+  const grade = sql.match(/create or replace function public\.v5_admin_grade_descriptive_answer[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(grade, /correct_count=v_correct,wrong_count=v_wrong,blank_count=v_blank/);
+  assert.match(grade, /q\.question_type<>'descriptive'.*sa\.is_correct is false/);
+  assert.match(grade, /security definer\s+set search_path\s*=\s*pg_catalog,\s*public/);
+  assert.match(sql, /revoke all on function public\.v5_admin_grade_descriptive_answer\(bigint,numeric,text\) from public,anon/);
+  assert.match(sql, /grant execute on function public\.v5_admin_grade_descriptive_answer\(bigint,numeric,text\) to authenticated/);
 });
 
 test('staff grading contract enforces role, score bounds, audit, and recalculation', () => {
