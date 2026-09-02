@@ -4,7 +4,7 @@ declare
   student_a bigint := 20; student_b bigint := 21; exam_id bigint := 191;
   descriptive_eq bigint := 32; objective_eq bigint := 31;
   token_a text := repeat('a',64); token_b text := repeat('b',64);
-  active_attempt uuid := gen_random_uuid(); expired_attempt uuid := gen_random_uuid(); foreign_attempt uuid := gen_random_uuid();
+  active_attempt uuid := gen_random_uuid(); deadline_attempt uuid := gen_random_uuid(); expired_attempt uuid := gen_random_uuid(); foreign_attempt uuid := gen_random_uuid();
   wrong_attempt uuid := gen_random_uuid(); blank_attempt uuid := gen_random_uuid();
   admin_id uuid := '10000000-0000-4000-8000-000000000099';
   objective_option bigint; wrong_option bigint; descriptive_answer bigint;
@@ -17,7 +17,8 @@ begin
     (encode(extensions.digest(token_b,'sha256'),'hex'),student_b,clock_timestamp()+interval '1 hour');
   insert into public.v5_attempts(id,exam_id,student_id,status,started_at) values
     (active_attempt,exam_id,student_a,'started',clock_timestamp()),
-    (expired_attempt,exam_id,student_a,'started',clock_timestamp()-interval '2 hours'),
+    (deadline_attempt,exam_id,student_a,'started',clock_timestamp()-interval '2 hours'),
+    (expired_attempt,exam_id,student_a,'expired',clock_timestamp()-interval '3 hours'),
     (foreign_attempt,exam_id,student_b,'started',clock_timestamp()),
     (wrong_attempt,exam_id,student_a,'started',clock_timestamp()),
     (blank_attempt,exam_id,student_a,'started',clock_timestamp());
@@ -112,11 +113,21 @@ begin
   exception when others then blocked := sqlerrm like '%ATTEMPT_NOT_STARTED%'; end;
   if not blocked then raise exception 'RESUBMIT_REJECTION_FAILED'; end if;
 
-  payload := public.v5_student_submit_attempt(expired_attempt,token_a);
-  if payload->>'status' <> 'expired' or payload->>'result_visible' <> 'false'
-  then raise exception 'DEADLINE_REJECTION_FAILED: %',payload; end if;
-  if (select status from public.v5_attempts where id=expired_attempt) <> 'expired'
-  then raise exception 'EXPIRED_STATUS_NOT_PERSISTED'; end if;
+  insert into public.v5_student_answers(attempt_id,exam_question_id,selected_option_id,is_correct,score_awarded)
+  values(deadline_attempt,objective_eq,objective_option,null,0);
+  payload := public.v5_student_submit_attempt(deadline_attempt,token_a);
+  if payload->>'status' <> 'submitted' or payload->>'correct_answers' <> '1'
+  then raise exception 'DEADLINE_FINALIZATION_FAILED: %',payload; end if;
+  if not exists(
+    select 1 from public.v5_attempts
+    where id=deadline_attempt and status='submitted' and submitted_at is not null
+      and correct_count=1 and wrong_count=0 and blank_count=1 and total_score=1
+  ) then raise exception 'DEADLINE_FINALIZATION_NOT_PERSISTED'; end if;
+
+  blocked:=false;
+  begin perform public.v5_student_submit_attempt(expired_attempt,token_a);
+  exception when others then blocked := sqlerrm like '%ATTEMPT_NOT_STARTED%'; end;
+  if not blocked then raise exception 'PREVIOUSLY_EXPIRED_ATTEMPT_ACCEPTED'; end if;
 end $$;
 rollback;
-select 'PASS: ownership, objective normalization, counters, manual grading, pending visibility, resubmit and deadline' result;
+select 'PASS: ownership, objective normalization, counters, manual grading, pending visibility, resubmit and deadline finalization' result;

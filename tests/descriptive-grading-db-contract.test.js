@@ -7,6 +7,7 @@ const migrationPath = path.join(__dirname, '../supabase/migrations/2026083121000
 const hardeningPath = path.join(__dirname, '../supabase/migrations/20260901173934_harden_descriptive_submission.sql');
 const objectiveConsistencyPath = path.join(__dirname, '../supabase/migrations/20260901190000_fix_objective_grading_consistency.sql');
 const resultDisplayPath = path.join(__dirname, '../supabase/migrations/20260901193000_fix_student_result_display.sql');
+const timerAutoSubmitPath = path.join(__dirname, '../supabase/migrations/20260902150000_auto_submit_at_deadline.sql');
 
 function migration() {
   return fs.readFileSync(migrationPath, 'utf8').toLowerCase();
@@ -22,6 +23,10 @@ function objectiveConsistencyMigration() {
 
 function resultDisplayMigration() {
   return fs.readFileSync(resultDisplayPath, 'utf8').toLowerCase();
+}
+
+function timerAutoSubmitMigration() {
+  return fs.readFileSync(timerAutoSubmitPath, 'utf8').toLowerCase();
 }
 
 test('student question contract preserves descriptive rows without exposing grading secrets', () => {
@@ -146,4 +151,40 @@ test('result display migration preserves feedback with an ASCII-only option sepa
   assert.match(result, /security definer\s+set search_path\s*=\s*pg_catalog,\s*public,\s*v5_auth_private/);
   assert.match(sql, /revoke all on function public\.v5_student_get_result_v2\(uuid,text\) from public/);
   assert.match(sql, /grant execute on function public\.v5_student_get_result_v2\(uuid,text\) to anon,authenticated/);
+});
+
+test('deadline finalization grades persisted answers instead of expiring a started attempt', () => {
+  const sql = timerAutoSubmitMigration();
+  const submit = sql.match(/create or replace function public\.v5_student_submit_attempt[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(submit, /for update/);
+  assert.match(submit, /v_attempt\.status\s*<>\s*'started'/);
+  assert.match(submit, /update public\.v5_student_answers sa set/);
+  assert.match(submit, /status='submitted',submitted_at=clock_timestamp\(\)/);
+  assert.doesNotMatch(submit, /set status='expired'/);
+  assert.doesNotMatch(submit, /'status','expired'/);
+  assert.match(sql, /security definer\s+set search_path\s*=\s*pg_catalog,\s*public,\s*v5_auth_private/);
+  assert.match(sql, /revoke all on function public\.v5_student_submit_attempt\(uuid,text\) from public/);
+  assert.match(sql, /grant execute on function public\.v5_student_submit_attempt\(uuid,text\) to anon,authenticated/);
+});
+
+test('deadline save paths preserve the started attempt for the single finalizer', () => {
+  const sql = timerAutoSubmitMigration();
+  for (const name of ['v5_student_save_answer', 'v5_student_save_descriptive_answer']) {
+    const save = sql.match(new RegExp(`create or replace function public\\.${name}[\\s\\S]*?\\$\\$;`))?.[0] || '';
+    assert.match(save, /student_for_token/);
+    assert.match(save, /for update/);
+    assert.match(save, /deadline_passed/);
+    assert.doesNotMatch(save, /set status='expired'/);
+  }
+});
+
+test('submission is idempotent and resume finalizes a reached deadline', () => {
+  const sql = timerAutoSubmitMigration();
+  const submit = sql.match(/create or replace function public\.v5_student_submit_attempt[\s\S]*?\$\$;/)?.[0] || '';
+  const resume = sql.match(/create or replace function public\.v5_student_resume_attempt[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(submit, /v_attempt\.status\s*=\s*'submitted'/);
+  assert.match(submit, /v_attempt\.correct_count/);
+  assert.match(resume, /v5_student_submit_attempt\(p_attempt_id,p_session_token\)/);
+  assert.match(resume, /'reason','submitted'/);
+  assert.doesNotMatch(resume, /set status='expired'/);
 });
