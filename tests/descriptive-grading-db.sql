@@ -98,6 +98,15 @@ begin
     where id=blank_attempt and correct_count=0 and wrong_count=0 and blank_count=2 and total_score=0
   ) then raise exception 'BLANK_COUNTER_INVALID'; end if;
 
+  update public.v5_exams set status='closed' where id=exam_id;
+  payload := public.v5_student_get_result_v2(active_attempt,token_a);
+  if payload->'details'->0->>'answer_text' is distinct from (
+    select qo.option_key||' - '||qo.option_text
+    from public.v5_question_options qo where qo.id=objective_option
+  ) then raise exception 'OBJECTIVE_ANSWER_DISPLAY_INVALID: %',payload->'details'->0->>'answer_text'; end if;
+  if payload->'details'->1->>'grading_feedback' <> 'regression test'
+  then raise exception 'GRADING_FEEDBACK_MISSING'; end if;
+
   blocked:=false;
   begin perform public.v5_student_submit_attempt(active_attempt,token_a);
   exception when others then blocked := sqlerrm like '%ATTEMPT_NOT_STARTED%'; end;

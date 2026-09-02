@@ -258,6 +258,36 @@ test('partial-credit descriptive result is not labelled wrong or unanswered', as
   assert.doesNotMatch(h.rowsText(), /غلط \/ نزده/);
 });
 
+test('descriptive result shows teacher feedback as safe text', async () => {
+  const h = harnessResult(resultFixture({
+    result_visible: true,
+    detail_visible: true,
+    grading_status: 'graded',
+    details: [{
+      question_order: 1,
+      question_text: 'پاسخ تشریحی',
+      answer_text: 'پاسخ دانش‌آموز',
+      is_correct: null,
+      score_awarded: 1.5,
+      grading_feedback: '<img src=x onerror=alert(1)>'
+    }]
+  }));
+  await h.load();
+  assert.match(h.rowsText(), /بازخورد دبیر/);
+  assert.match(h.rowsText(), /<img src=x onerror=alert\(1\)>/);
+});
+
+test('empty teacher feedback does not render a feedback label', async () => {
+  const h = harnessResult(resultFixture({
+    result_visible: true,
+    detail_visible: true,
+    grading_status: 'graded',
+    details: [{question_order: 1, question_text: 'پاسخ تشریحی', answer_text: 'پاسخ', is_correct: null, score_awarded: 1.5, grading_feedback: '   '}]
+  }));
+  await h.load();
+  assert.doesNotMatch(h.rowsText(), /بازخورد دبیر/);
+});
+
 test('truthy non-boolean result visibility does not reveal summary', async () => {
   const h = harnessResult(resultFixture({result_visible: 'true', detail_visible: false}));
   await h.load();
