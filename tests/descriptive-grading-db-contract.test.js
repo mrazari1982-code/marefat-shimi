@@ -6,6 +6,7 @@ const test = require('node:test');
 const migrationPath = path.join(__dirname, '../supabase/migrations/20260831210000_descriptive_answer_grading.sql');
 const hardeningPath = path.join(__dirname, '../supabase/migrations/20260901173934_harden_descriptive_submission.sql');
 const objectiveConsistencyPath = path.join(__dirname, '../supabase/migrations/20260901190000_fix_objective_grading_consistency.sql');
+const resultDisplayPath = path.join(__dirname, '../supabase/migrations/20260901193000_fix_student_result_display.sql');
 
 function migration() {
   return fs.readFileSync(migrationPath, 'utf8').toLowerCase();
@@ -17,6 +18,10 @@ function hardeningMigration() {
 
 function objectiveConsistencyMigration() {
   return fs.readFileSync(objectiveConsistencyPath, 'utf8').toLowerCase();
+}
+
+function resultDisplayMigration() {
+  return fs.readFileSync(resultDisplayPath, 'utf8').toLowerCase();
 }
 
 test('student question contract preserves descriptive rows without exposing grading secrets', () => {
@@ -129,5 +134,16 @@ test('student dashboard and result contracts hide pending manual grades', () => 
     assert.match(fn, /percentage/);
   }
   assert.match(sql, /grant execute on function public\.v5_student_dashboard_v2\(text,integer\) to anon,authenticated/);
+  assert.match(sql, /grant execute on function public\.v5_student_get_result_v2\(uuid,text\) to anon,authenticated/);
+});
+
+test('result display migration preserves feedback with an ASCII-only option separator', () => {
+  const sql = resultDisplayMigration();
+  const result = sql.match(/create or replace function public\.v5_student_get_result_v2[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(result, /o\.option_key\|\|' - '\|\|o\.option_text/);
+  assert.match(result, /'grading_feedback',sa\.grading_feedback/);
+  assert.doesNotMatch(result, /—|â/);
+  assert.match(result, /security definer\s+set search_path\s*=\s*pg_catalog,\s*public,\s*v5_auth_private/);
+  assert.match(sql, /revoke all on function public\.v5_student_get_result_v2\(uuid,text\) from public/);
   assert.match(sql, /grant execute on function public\.v5_student_get_result_v2\(uuid,text\) to anon,authenticated/);
 });
