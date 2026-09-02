@@ -135,22 +135,49 @@
     $('retry').hidden = true;
     setMessage('در حال دریافت اطلاعات…', 'muted');
     try {
-      if (!global.MarefatStudentAuth.requireSession()) return;
+      if (!global.MarefatStudentAuth.requireSession()) return false;
       const result = await sb.rpc('v5_dashboard', {p_limit: 100});
       if (result.error) throw result.error;
       renderDashboard(Array.isArray(result.data) ? result.data[0] : result.data);
       setMessage('اطلاعات شما به‌روز است.', 'ok');
-    } catch (error) { await handleError(error); }
+      return true;
+    } catch (error) { await handleError(error); return false; }
+  }
+  function renderSubmittedStart(attempt) {
+    const target = $('start-outcome');
+    target.replaceChildren(element('p', 'این آزمون قبلاً ثبت شده است.'));
+    const owned = (Array.isArray(lastPayload?.attempts) ? lastPayload.attempts : [])
+      .find(row => String(row.attempt_id) === String(attempt.attempt_id));
+    if (owned?.result_visible === true) {
+      const result = element('button', 'مشاهده نتیجه');
+      result.type = 'button';
+      result.className = 'btn secondary';
+      result.dataset.result = String(owned.attempt_id);
+      result.addEventListener('click', () => navigate('student-result.html?attempt=' + encodeURIComponent(owned.attempt_id)));
+      target.append(result);
+    }
   }
   async function startExam(token) {
     const value = String(token || '').trim();
     if (!value) { setMessage('توکن لینک آزمون را وارد کنید.', 'err'); return; }
-    const button = $('start-exam'); button.disabled = true; setMessage('در حال شروع آزمون…', 'muted');
+    const button = $('start-exam');
+    $('start-outcome').replaceChildren();
+    button.disabled = true; setMessage('در حال شروع آزمون…', 'muted');
     try {
       const result = await sb.rpc('v5_start_exam', {p_token: value});
       if (result.error) throw result.error;
       const attempt = Array.isArray(result.data) ? result.data[0] : result.data;
       if (!attempt || !attempt.attempt_id) throw new Error('شروع آزمون انجام نشد.');
+      if (attempt.status === 'submitted' || attempt.status === 'already_submitted') {
+        const refreshed = await loadDashboard();
+        if (refreshed) {
+          renderSubmittedStart(attempt);
+          setMessage('این آزمون قبلاً ثبت شده است؛ تلاش جدیدی ایجاد نشد.', 'ok');
+        } else {
+          $('start-outcome').replaceChildren(element('p', 'این آزمون قبلاً ثبت شده است؛ برای مشاهده نتیجه، دریافت اطلاعات را دوباره امتحان کنید.'));
+        }
+        return;
+      }
       navigate('exam.html?attempt=' + encodeURIComponent(attempt.attempt_id));
     } catch (error) { await handleError(error); } finally { button.disabled = false; }
   }
@@ -163,7 +190,7 @@
     return loadDashboard();
   }
 
-  global.StudentDashboard = {renderDashboard, renderProfile, renderSummary, renderAttempts, renderTrend, friendlyError, loadDashboard, startExam};
+  global.StudentDashboard = {renderDashboard, renderProfile, renderSummary, renderAttempts, renderTrend, friendlyError, loadDashboard, startExam, renderSubmittedStart};
   global.initDashboard = init;
   global.renderDashboard = renderDashboard; global.renderProfile = renderProfile; global.renderSummary = renderSummary; global.renderAttempts = renderAttempts; global.renderTrend = renderTrend; global.friendlyError = friendlyError; global.loadDashboard = loadDashboard; global.startExam = startExam;
   if (!global.__STUDENT_DASHBOARD_TEST__) init();

@@ -1,1 +1,54 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ورود به آزمون | سامانه معرفت</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><style>body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:700px;margin:auto;padding:22px}.card{background:#fff;border-radius:16px;padding:22px;margin:16px 0;box-shadow:0 3px 16px #0001}.btn{padding:11px 16px;border:0;border-radius:9px;background:#3157d5;color:#fff;font-weight:700;cursor:pointer}.err{color:#b42318}.muted{color:#667085}.ok{color:#176b3a}input{padding:11px;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;margin:8px 0 14px}</style></head><body><main class="wrap"><section class="card"><h1>ورود به آزمون</h1><p id="examInfo" class="muted">در حال بررسی لینک آزمون...</p><div id="form" style="display:none"><label>کد دانش‌آموز</label><input id="studentCode" autocomplete="off" placeholder="کد دانش‌آموز را وارد کنید"><button id="startBtn" class="btn">شروع آزمون</button></div><p id="msg" class="muted"></p></section></main><script>const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');const $=id=>document.getElementById(id);const token=new URLSearchParams(location.search).get('token');let exam=null;async function init(){if(!token){$('examInfo').className='err';$('examInfo').textContent='لینک آزمون معتبر نیست.';return}const {data:rows,error}=await sb.rpc('v5_validate_exam_link',{p_token:token});if(error)throw error;const link=Array.isArray(rows)?rows[0]:rows;if(!link){$('examInfo').className='err';$('examInfo').textContent='این لینک آزمون فعال یا معتبر نیست.';return}exam=link;$('examInfo').textContent='آزمون: '+String(link.exam_title||'آزمون')+' | کد آزمون: '+String(link.exam_code||'')+' | مدت: '+(link.duration_minutes||'بدون محدودیت')+' دقیقه';$('form').style.display='block'}$('startBtn').onclick=()=>{const code=$('studentCode').value.trim();if(!code){$('msg').className='err';$('msg').textContent='کد دانش‌آموز را وارد کنید.';return}$('startBtn').disabled=true;$('msg').className='muted';$('msg').textContent='در حال ورود به آزمون...';location.href='exam.html?token='+encodeURIComponent(token)+'&student_code='+encodeURIComponent(code)};init().catch(e=>{$('examInfo').className='err';$('examInfo').textContent='خطا در بررسی لینک: '+e.message})</script></main></body></html>
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ورود به آزمون | سامانه معرفت</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="student-auth.js"></script>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f5f7fb;color:#172033;margin:0}.wrap{max-width:700px;margin:auto;padding:22px}.card{background:#fff;border-radius:16px;padding:22px;margin:16px 0;box-shadow:0 3px 16px #0001}.err{color:#b42318}.muted{color:#667085}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="card">
+    <h1>ورود به آزمون</h1>
+    <p id="examInfo" class="muted" role="status" aria-live="polite">در حال بررسی لینک آزمون...</p>
+    <p id="msg" class="muted"></p>
+  </section>
+</main>
+<script>
+const sb=supabase.createClient('https://rbqlblryxcaodvyrnfuo.supabase.co','sb_publishable_iJkwgMHRaBQjFhk_0QSU1w_aSKWG1mU');
+const $=id=>document.getElementById(id);
+const token=new URLSearchParams(location.search).get('token');
+
+async function init(){
+  if(!token){
+    $('examInfo').className='err';
+    $('examInfo').textContent='لینک آزمون معتبر نیست.';
+    return;
+  }
+  const {data:rows,error}=await sb.rpc('v5_validate_exam_link',{p_token:token});
+  if(error)throw error;
+  const link=Array.isArray(rows)?rows[0]:rows;
+  if(!link){
+    $('examInfo').className='err';
+    $('examInfo').textContent='این لینک آزمون فعال یا معتبر نیست.';
+    return;
+  }
+  const dashboard=MarefatStudentAuth.safeReturn('student-dashboard.html?token='+encodeURIComponent(token));
+  const destination=MarefatStudentAuth.getSession()
+    ? dashboard
+    : 'student-login.html?return='+encodeURIComponent(dashboard);
+  $('examInfo').textContent='لینک معتبر است؛ در حال انتقال به ورود امن دانش‌آموز...';
+  location.replace(destination);
+}
+
+init().catch(error=>{
+  $('examInfo').className='err';
+  $('examInfo').textContent='خطا در بررسی لینک: '+String(error&&error.message||'خطای نامشخص');
+});
+</script>
+</body>
+</html>

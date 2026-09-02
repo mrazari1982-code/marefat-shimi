@@ -31,9 +31,9 @@ function ownedPayload() { return {profile: {full_name: 'دانش‌آموز آز
 ]}; }
 
 function harness(payload, options = {}) {
-  const elements = new Map(['profile', 'summary', 'history', 'trend', 'dashboard-message', 'token-form', 'exam-token', 'start-exam', 'retry', 'logout'].map(id => [id, new Element(id === 'exam-token' ? 'input' : id === 'token-form' ? 'form' : 'div')]));
+  const elements = new Map(['profile', 'summary', 'history', 'trend', 'dashboard-message', 'start-outcome', 'token-form', 'exam-token', 'start-exam', 'retry', 'logout'].map(id => [id, new Element(id === 'exam-token' ? 'input' : id === 'token-form' ? 'form' : 'div')]));
   elements.get('retry').hidden = true;
-  let location = null, calls = [], failures = options.failures || 0;
+  let location = null, calls = [], failures = options.failures || 0, dashboardIndex = 0;
   const doc = {
     getElementById(id) { return elements.get(id) || null; },
     createElement(tag) { return new Element(tag); },
@@ -42,6 +42,7 @@ function harness(payload, options = {}) {
   };
   const rpc = async (name, args) => {
     calls.push([name, args]);
+    if (name === 'v5_dashboard' && options.dashboardResults) return options.dashboardResults[dashboardIndex++];
     if (name === 'v5_dashboard' && options.dashboardResult) return options.dashboardResult;
     if (name === 'v5_dashboard' && failures-- > 0) return {error: {message: 'Network unavailable'}};
     if (name === 'v5_start_exam') return options.startResult || {data: {attempt_id: 'new-attempt'}};
@@ -132,6 +133,38 @@ test('token form submission starts the exam without a mouse click', async () => 
   const h = harness(ownedPayload()); await h.init(); h.elements.get('exam-token').value = 'keyboard-token'; await h.submitToken();
   assert.deepEqual(JSON.parse(JSON.stringify(h.calls.find(([name]) => name === 'v5_start_exam'))), ['v5_start_exam', {p_token: 'keyboard-token'}]);
 });
+test('submitted start response stays on dashboard and offers its visible result', async () => {
+  const h = harness(ownedPayload(), {search: '?token=used-token', startResult: {data: {status: 'submitted', attempt_id: 'attempt-b'}}});
+  await h.init(); await h.submitToken();
+  assert.equal(h.location, null);
+  assert.equal(h.calls.filter(([name]) => name === 'v5_dashboard').length, 2);
+  assert.match(h.text('dashboard-message'), /قبلاً ثبت شده/);
+  assert.match(h.text('start-outcome'), /مشاهده نتیجه/);
+  const result = descendants(h.elements.get('start-outcome')).find(node => node.dataset.result === 'attempt-b');
+  assert.ok(result);
+  result.click();
+  assert.equal(h.location, 'student-result.html?attempt=attempt-b');
+});
+test('submitted start response never exposes a hidden result action', async () => {
+  const hidden = ownedPayload();
+  hidden.attempts[1].result_visible = false;
+  const h = harness(hidden, {startResult: {data: {status: 'already_submitted', attempt_id: 'attempt-b'}}});
+  await h.init(); await h.ctx.startExam('used-token');
+  assert.equal(h.location, null);
+  assert.match(h.text('start-outcome'), /قبلاً ثبت شده/);
+  assert.doesNotMatch(h.text('start-outcome'), /مشاهده نتیجه/);
+});
+test('failed submitted-attempt refresh cannot reuse stale result visibility', async () => {
+  const payload = ownedPayload();
+  const h = harness(payload, {
+    startResult: {data: {status: 'submitted', attempt_id: 'attempt-b'}},
+    dashboardResults: [{data: payload}, {error: {message: 'Network unavailable'}}]
+  });
+  await h.init(); await h.ctx.startExam('used-token');
+  assert.equal(h.location, null);
+  assert.equal(descendants(h.elements.get('start-outcome')).find(node => node.dataset.result === 'attempt-b'), undefined);
+  assert.match(h.text('dashboard-message'), /Network unavailable/);
+});
 test('missing and expired sessions do not request or render private dashboard data', async () => {
   for (const state of ['missing', 'expired']) {
     const h = harness(ownedPayload(), {requireSession: () => null}); await h.init();
@@ -147,7 +180,7 @@ test('HTML shell preserves semantic dashboard structure and dependency order', (
   const html = fs.readFileSync(path.join(__dirname, '../public/student-dashboard.html'), 'utf8');
   assert.match(html, /<html[^>]*dir="rtl"/); assert.match(html, /<main[^>]*id="dashboard-main"/); assert.match(html, /id="dashboard-message"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /<label[^>]*for="exam-token"/); assert.match(html, /<form[^>]*id="token-form"/); assert.match(html, /id="start-exam"[^>]*type="submit"/);
-  for (const id of ['profile', 'summary', 'history', 'trend', 'dashboard-message', 'exam-token', 'start-exam', 'retry', 'logout']) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ['profile', 'summary', 'history', 'trend', 'dashboard-message', 'start-outcome', 'exam-token', 'start-exam', 'retry', 'logout']) assert.match(html, new RegExp(`id="${id}"`));
   assert.ok(html.indexOf('supabase-js@2') < html.indexOf('student-auth.js') && html.indexOf('student-auth.js') < html.indexOf('student-dashboard.js'));
   assert.match(html, /min-height:44px/);
 });
